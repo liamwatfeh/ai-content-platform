@@ -63,16 +63,16 @@ export default function WhitepapersPage() {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon, current: false },
     {
-      name: "Generate Content",
-      href: "/generate",
-      icon: SparklesIcon,
-      current: false,
-    },
-    {
       name: "Whitepapers",
       href: "/whitepapers",
       icon: DocumentTextIcon,
       current: true,
+    },
+    {
+      name: "Generate Content",
+      href: "/generate-content",
+      icon: SparklesIcon,
+      current: false,
     },
     { name: "History", href: "/history", icon: ClockIcon, current: false },
     { name: "Settings", href: "/settings", icon: CogIcon, current: false },
@@ -815,19 +815,13 @@ export default function WhitepapersPage() {
 
                               {/* Generate Content Button - Only show when completed */}
                               {whitepaper.processing_status === "completed" && (
-                                <button
-                                  onClick={() => {
-                                    // TODO: Implement generate content functionality
-                                    console.log(
-                                      "Generate content for:",
-                                      whitepaper.id
-                                    );
-                                  }}
+                                <Link
+                                  href={`/generate-content?whitepaper=${whitepaper.id}`}
                                   className="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
                                 >
                                   <SparklesIcon className="w-4 h-4 mr-1" />
                                   Generate Content
-                                </button>
+                                </Link>
                               )}
 
                               {/* Retry Button - Only show when failed */}
@@ -898,10 +892,13 @@ export default function WhitepapersPage() {
                               <div className="w-full space-y-2">
                                 {whitepaper.processing_status ===
                                   "completed" && (
-                                  <button className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium">
+                                  <Link
+                                    href={`/generate-content?whitepaper=${whitepaper.id}`}
+                                    className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium"
+                                  >
                                     <SparklesIcon className="w-4 h-4 mr-1" />
                                     Generate Content
-                                  </button>
+                                  </Link>
                                 )}
                                 {whitepaper.processing_status === "failed" && (
                                   <button

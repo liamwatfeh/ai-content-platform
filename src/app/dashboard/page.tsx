@@ -52,15 +52,15 @@ export default function DashboardPage() {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon, current: true },
     {
-      name: "Generate Content",
-      href: "/generate",
-      icon: SparklesIcon,
-      current: false,
-    },
-    {
       name: "Whitepapers",
       href: "/whitepapers",
       icon: DocumentTextIcon,
+      current: false,
+    },
+    {
+      name: "Generate Content",
+      href: "/generate-content",
+      icon: SparklesIcon,
       current: false,
     },
     { name: "History", href: "/history", icon: ClockIcon, current: false },
@@ -445,7 +445,7 @@ export default function DashboardPage() {
                           Generate your first content from a whitepaper.
                         </p>
                         <Link
-                          href="/generate"
+                          href="/generate-content"
                           className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                         >
                           <SparklesIcon className="h-4 w-4 mr-2" />
@@ -513,7 +513,7 @@ export default function DashboardPage() {
                   </Link>
 
                   <Link
-                    href="/generate"
+                    href="/generate-content"
                     className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow"
                   >
                     <div>
