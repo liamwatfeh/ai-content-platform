@@ -14,7 +14,9 @@ import {
   CloudArrowUpIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
+import PDFThumbnail from "@/components/PDFThumbnail";
 
 // Types
 interface ReferenceBucket {
@@ -54,6 +56,7 @@ export default function WhitepapersPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon, current: false },
@@ -252,6 +255,46 @@ export default function WhitepapersPage() {
     return `${mb.toFixed(1)} MB`;
   };
 
+  const handleRetryProcessing = async (whitepaperIds: string[]) => {
+    try {
+      // Add IDs to retrying set
+      setRetryingIds((prev) => new Set([...prev, ...whitepaperIds]));
+
+      const response = await fetch("/api/whitepapers/retry", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ whitepaperIds }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh the whitepapers list to show updated status
+        if (selectedBucket) {
+          await loadWhitepapers(selectedBucket.id);
+        }
+        alert(
+          `Retry processing initiated for ${data.processedCount} whitepaper(s)`
+        );
+      } else {
+        console.error("Failed to retry processing:", data.error);
+        alert(data.error || "Failed to retry processing");
+      }
+    } catch (error) {
+      console.error("Error retrying processing:", error);
+      alert("Failed to retry processing");
+    } finally {
+      // Remove IDs from retrying set
+      setRetryingIds((prev) => {
+        const newSet = new Set(prev);
+        whitepaperIds.forEach((id) => newSet.delete(id));
+        return newSet;
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "uploading":
@@ -434,9 +477,7 @@ export default function WhitepapersPage() {
           <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">
-                  Reference Buckets
-                </h2>
+                <h2 className="text-lg font-medium text-gray-900">Buckets</h2>
                 <button
                   onClick={() => setShowCreateForm(!showCreateForm)}
                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
@@ -708,52 +749,195 @@ export default function WhitepapersPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    <div className="space-y-4">
                       {whitepapers.map((whitepaper) => (
                         <div
                           key={whitepaper.id}
-                          className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                          className="relative w-full bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200 md:min-h-[200px]"
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-medium text-gray-900 truncate">
-                                {whitepaper.title}
-                              </h3>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {whitepaper.filename}
-                              </p>
+                          {/* Desktop Layout - Hidden on Mobile */}
+                          <div className="hidden md:block">
+                            {/* PDF Preview Section - Left Side */}
+                            <div className="absolute left-6 top-6">
+                              <PDFThumbnail
+                                fileUrl={whitepaper.file_url}
+                                width={110}
+                                height={145}
+                                className="lg:w-[120px] lg:h-[160px]"
+                              />
                             </div>
-                            {getStatusBadge(whitepaper.processing_status)}
-                          </div>
 
-                          <div className="space-y-2 text-xs text-gray-500">
-                            <div className="flex justify-between">
-                              <span>Uploaded</span>
-                              <span>{formatDate(whitepaper.upload_date)}</span>
+                            {/* Status Pill - Top Right Corner */}
+                            <div className="absolute top-6 right-6">
+                              {getStatusBadge(whitepaper.processing_status)}
                             </div>
-                            <div className="flex justify-between">
-                              <span>Size</span>
-                              <span>
-                                {formatFileSize(whitepaper.file_size_bytes)}
-                              </span>
-                            </div>
-                            {whitepaper.chunk_count > 0 && (
-                              <div className="flex justify-between">
-                                <span>Chunks</span>
-                                <span>{whitepaper.chunk_count}</span>
+
+                            {/* Main Content Area - Center-Left */}
+                            <div className="ml-32 lg:ml-36 mr-16">
+                              {/* Title and Filename Section */}
+                              <div className="mb-4">
+                                <h3 className="text-xl font-semibold text-gray-900 leading-tight mb-1">
+                                  {whitepaper.title}
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                  {whitepaper.filename}
+                                </p>
                               </div>
-                            )}
+
+                              {/* Metadata Section */}
+                              <div className="flex flex-col space-y-2">
+                                <div className="text-sm text-gray-600">
+                                  Uploaded: {formatDate(whitepaper.upload_date)}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Size:{" "}
+                                  {formatFileSize(whitepaper.file_size_bytes)}
+                                </div>
+                                {whitepaper.chunk_count > 0 && (
+                                  <div className="text-sm text-gray-600">
+                                    Chunks: {whitepaper.chunk_count}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action Buttons - Bottom Right */}
+                            <div className="absolute bottom-6 right-6 flex items-center space-x-3">
+                              {/* Delete Button */}
+                              <button
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      "Are you sure you want to delete this whitepaper?"
+                                    )
+                                  ) {
+                                    // TODO: Implement delete functionality
+                                    console.log(
+                                      "Delete whitepaper:",
+                                      whitepaper.id
+                                    );
+                                  }
+                                }}
+                                className="inline-flex items-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md text-sm font-medium transition-colors"
+                              >
+                                <TrashIcon className="w-4 h-4 mr-1" />
+                                Delete
+                              </button>
+
+                              {/* Generate Content Button - Only show when completed */}
+                              {whitepaper.processing_status === "completed" && (
+                                <button
+                                  onClick={() => {
+                                    // TODO: Implement generate content functionality
+                                    console.log(
+                                      "Generate content for:",
+                                      whitepaper.id
+                                    );
+                                  }}
+                                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
+                                >
+                                  <SparklesIcon className="w-4 h-4 mr-1" />
+                                  Generate Content
+                                </button>
+                              )}
+
+                              {/* Retry Button - Only show when failed */}
+                              {whitepaper.processing_status === "failed" && (
+                                <button
+                                  onClick={() =>
+                                    handleRetryProcessing([whitepaper.id])
+                                  }
+                                  disabled={retryingIds.has(whitepaper.id)}
+                                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
+                                >
+                                  {retryingIds.has(whitepaper.id) ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    "Retry"
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="mt-4 flex space-x-2">
-                            {whitepaper.processing_status === "completed" && (
-                              <button className="flex-1 text-xs font-medium text-blue-600 hover:text-blue-500">
-                                Generate Content
-                              </button>
-                            )}
-                            <button className="flex-1 text-xs font-medium text-gray-600 hover:text-gray-500">
-                              View Details
-                            </button>
+                          {/* Mobile Layout - Only visible on mobile */}
+                          <div className="md:hidden">
+                            {/* Mobile layout - Stack vertically */}
+                            <div className="flex flex-col items-center">
+                              {/* PDF Preview - Centered at top, smaller */}
+                              <div className="mb-4">
+                                <PDFThumbnail
+                                  fileUrl={whitepaper.file_url}
+                                  width={100}
+                                  height={130}
+                                />
+                              </div>
+
+                              {/* Content - Full width */}
+                              <div className="w-full text-center mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                                  {whitepaper.title}
+                                </h3>
+                                <p className="text-sm text-gray-500 mb-3">
+                                  {whitepaper.filename}
+                                </p>
+
+                                <div className="space-y-1 text-sm text-gray-600">
+                                  <div>
+                                    Uploaded:{" "}
+                                    {formatDate(whitepaper.upload_date)}
+                                  </div>
+                                  <div>
+                                    Size:{" "}
+                                    {formatFileSize(whitepaper.file_size_bytes)}
+                                  </div>
+                                  {whitepaper.chunk_count > 0 && (
+                                    <div>Chunks: {whitepaper.chunk_count}</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Status - Centered */}
+                              <div className="mb-4">
+                                {getStatusBadge(whitepaper.processing_status)}
+                              </div>
+
+                              {/* Buttons - Full width, stacked */}
+                              <div className="w-full space-y-2">
+                                {whitepaper.processing_status ===
+                                  "completed" && (
+                                  <button className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium">
+                                    <SparklesIcon className="w-4 h-4 mr-1" />
+                                    Generate Content
+                                  </button>
+                                )}
+                                {whitepaper.processing_status === "failed" && (
+                                  <button
+                                    onClick={() =>
+                                      handleRetryProcessing([whitepaper.id])
+                                    }
+                                    disabled={retryingIds.has(whitepaper.id)}
+                                    className="w-full inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium"
+                                  >
+                                    {retryingIds.has(whitepaper.id) ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                                        Retrying...
+                                      </>
+                                    ) : (
+                                      "Retry"
+                                    )}
+                                  </button>
+                                )}
+                                <button className="w-full inline-flex items-center justify-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md text-sm font-medium">
+                                  <TrashIcon className="w-4 h-4 mr-1" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}

@@ -29,6 +29,7 @@
     "node-poppler": "^8.0.1",
     "openai": "^5.8.2",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.3.31",
     "puppeteer": "^24.11.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

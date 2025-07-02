@@ -261,6 +261,9 @@ export async function POST(request: NextRequest) {
         console.log(
           `🔄 [UPLOAD] Starting background processing for ${file.name}...`
         );
+        const { processWhitepaperBackground } = await import(
+          "@/lib/whitepaper-processor"
+        );
         const processingPromise = processWhitepaperBackground(
           whitepaper.id,
           buffer
@@ -305,72 +308,5 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Process whitepaper in background without blocking the response
- */
-async function processWhitepaperBackground(
-  whitepaperId: string,
-  pdfBuffer: Buffer
-) {
-  console.log(
-    `🔄 [BACKGROUND] Starting background processing for whitepaper: ${whitepaperId}`
-  );
-
-  try {
-    // Dynamic import to avoid build issues
-    const { processWhitepaper } = await import("@/lib/whitepaper-processor");
-
-    console.log(
-      `⚙️ [BACKGROUND] Calling processWhitepaper for ${whitepaperId}`
-    );
-    const result = await processWhitepaper(whitepaperId, pdfBuffer);
-
-    if (result.success) {
-      console.log(
-        `✅ [BACKGROUND] Processing completed successfully for ${whitepaperId}: ${result.chunkCount} chunks`
-      );
-    } else {
-      console.error(
-        `❌ [BACKGROUND] Processing failed for ${whitepaperId}:`,
-        result.error
-      );
-    }
-
-    return result;
-  } catch (error) {
-    console.error(
-      `❌ [BACKGROUND] Critical background processing error for ${whitepaperId}:`,
-      error
-    );
-
-    // Update status to failed
-    try {
-      const { supabase } = await import("@/lib/supabase");
-      await supabase
-        .from("whitepapers")
-        .update({
-          processing_status: "failed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", whitepaperId);
-
-      console.log(
-        `📊 [BACKGROUND] Updated status to failed for ${whitepaperId}`
-      );
-    } catch (dbError) {
-      console.error(
-        `❌ [BACKGROUND] Failed to update status for ${whitepaperId}:`,
-        dbError
-      );
-    }
-
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Background processing failed",
-    };
   }
 }

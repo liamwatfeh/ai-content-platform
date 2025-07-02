@@ -370,7 +370,7 @@ Please give a short succinct context to situate this chunk within the overall do
     console.log(`🤖 [CONTEXT] Calling OpenAI API for context generation`);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Using gpt-4o-mini for reliable context generation
+      model: "gpt-4.1-nano-2025-04-14", // Using gpt-4o-mini for reliable context generation
       messages: [{ role: "user", content: contextPrompt }],
       max_tokens: 100,
       temperature: 0.3,
@@ -566,6 +566,62 @@ async function getWhitepaperFromDB(whitepaperId: string) {
  */
 export function generateChunkId(): string {
   return uuidv4();
+}
+
+/**
+ * Process whitepaper in background without blocking the response
+ */
+export async function processWhitepaperBackground(
+  whitepaperId: string,
+  pdfBuffer: Buffer
+) {
+  console.log(
+    `🔄 [BACKGROUND] Starting background processing for whitepaper: ${whitepaperId}`
+  );
+
+  try {
+    console.log(
+      `⚙️ [BACKGROUND] Calling processWhitepaper for ${whitepaperId}`
+    );
+    const result = await processWhitepaper(whitepaperId, pdfBuffer);
+
+    if (result.success) {
+      console.log(
+        `✅ [BACKGROUND] Processing completed successfully for ${whitepaperId}: ${result.chunkCount} chunks`
+      );
+    } else {
+      console.error(
+        `❌ [BACKGROUND] Processing failed for ${whitepaperId}:`,
+        result.error
+      );
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      `❌ [BACKGROUND] Critical background processing error for ${whitepaperId}:`,
+      error
+    );
+
+    // Update status to failed
+    try {
+      await updateWhitepaperStatus(whitepaperId, "failed");
+      console.log(
+        `📊 [BACKGROUND] Updated status to failed for ${whitepaperId}`
+      );
+    } catch (dbError) {
+      console.error(
+        `❌ [BACKGROUND] Failed to update status for ${whitepaperId}:`,
+        dbError
+      );
+    }
+
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Background processing failed",
+    };
+  }
 }
 
 /**
