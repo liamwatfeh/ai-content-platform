@@ -218,8 +218,8 @@ async function extractTextFromPDF(pdfBuffer: Buffer): Promise<string> {
     console.log(`💾 [PDF] Writing buffer to temporary file: ${tempFilePath}`);
     writeFileSync(tempFilePath, pdfBuffer);
 
-    // Initialize Poppler
-    const poppler = new Poppler();
+    // Initialize Poppler with explicit path to binaries
+    const poppler = new Poppler("/usr/local/bin");
 
     // Extract text using pdfToText
     console.log(`⚙️ [PDF] Extracting text using Poppler pdfToText`);
