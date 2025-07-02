@@ -12,9 +12,15 @@ interface CreateBucketRequest {
 // GET - List all reference buckets
 export async function GET() {
   try {
+    // Get buckets with actual whitepaper counts
     const { data: buckets, error } = await supabase
       .from("reference_buckets")
-      .select("*")
+      .select(
+        `
+        *,
+        whitepapers:whitepapers(count)
+      `
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -25,9 +31,16 @@ export async function GET() {
       );
     }
 
+    // Transform the data to include actual whitepaper counts
+    const bucketsWithCounts =
+      buckets?.map((bucket) => ({
+        ...bucket,
+        whitepaper_count: bucket.whitepapers?.[0]?.count || 0,
+      })) || [];
+
     return NextResponse.json({
       success: true,
-      buckets: buckets || [],
+      buckets: bucketsWithCounts,
     });
   } catch (error) {
     console.error("Error fetching reference buckets:", error);

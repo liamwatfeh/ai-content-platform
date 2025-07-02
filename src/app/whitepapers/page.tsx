@@ -17,6 +17,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import PDFThumbnail from "@/components/PDFThumbnail";
+import NewBucketModal from "@/components/NewBucketModal";
 
 // Types
 interface ReferenceBucket {
@@ -57,6 +58,7 @@ export default function WhitepapersPage() {
   const [uploading, setUploading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon, current: false },
@@ -146,11 +148,7 @@ export default function WhitepapersPage() {
     }
   };
 
-  const handleCreateBucket = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+  const handleCreateBucket = async (formData: FormData) => {
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
 
@@ -170,8 +168,6 @@ export default function WhitepapersPage() {
         setBuckets((prev) => [data.bucket, ...prev]);
         setSelectedBucket(data.bucket);
         setShowCreateForm(false);
-        // Reset form
-        event.currentTarget.reset();
       } else {
         console.error("Failed to create bucket:", data.error);
         alert(data.error || "Failed to create bucket");
@@ -288,6 +284,61 @@ export default function WhitepapersPage() {
     } finally {
       // Remove IDs from retrying set
       setRetryingIds((prev) => {
+        const newSet = new Set(prev);
+        whitepaperIds.forEach((id) => newSet.delete(id));
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteWhitepapers = async (whitepaperIds: string[]) => {
+    try {
+      // Track deleting IDs
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        whitepaperIds.forEach((id) => newSet.add(id));
+        return newSet;
+      });
+
+      console.log(
+        "🗑️ [DELETE] Starting deletion for whitepapers:",
+        whitepaperIds
+      );
+
+      const response = await fetch(
+        `/api/whitepapers?ids=${whitepaperIds.join(",")}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log("✅ [DELETE] Deletion completed:", data);
+
+        // Remove deleted whitepapers from the UI
+        setWhitepapers((prev) =>
+          prev.filter((wp) => !whitepaperIds.includes(wp.id))
+        );
+
+        // Show success message
+        alert(data.message || "Whitepapers deleted successfully");
+
+        // Refresh the list to ensure consistency
+        if (selectedBucket) {
+          loadWhitepapers(selectedBucket.id);
+        }
+      } else {
+        console.error("❌ [DELETE] Failed to delete:", data.error);
+        alert(data.error || "Failed to delete whitepapers");
+      }
+    } catch (error) {
+      console.error("❌ [DELETE] Error deleting whitepapers:", error);
+      alert("Failed to delete whitepapers");
+    } finally {
+      // Clear deleting IDs
+      setDeletingIds((prev) => {
         const newSet = new Set(prev);
         whitepaperIds.forEach((id) => newSet.delete(id));
         return newSet;
@@ -475,97 +526,29 @@ export default function WhitepapersPage() {
         <div className="flex flex-1 overflow-hidden">
           {/* Left Panel - Reference Buckets */}
           <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">Buckets</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Buckets</h2>
                 <button
                   onClick={() => setShowCreateForm(!showCreateForm)}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
                 >
                   <PlusIcon className="h-4 w-4 mr-1" />
                   New
                 </button>
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                Organize your whitepapers into themed collections
+                Group your Whitepaper into Indexes
               </p>
             </div>
 
-            {/* Create Bucket Form - Centered Modal */}
-            {showCreateForm && (
-              <div className="fixed inset-0 bg-gray-900 bg-opacity-20 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-                <div className="relative mx-auto p-6 border border-gray-200 w-96 shadow-xl rounded-lg bg-white">
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-black">
-                        Create Reference Bucket
-                      </h3>
-                      <button
-                        onClick={() => setShowCreateForm(false)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
-                      >
-                        <XMarkIcon className="h-6 w-6" />
-                      </button>
-                    </div>
-
-                    <form onSubmit={handleCreateBucket} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-black mb-1">
-                          Bucket Name *
-                        </label>
-                        <input
-                          type="text"
-                          name="name"
-                          placeholder="e.g., Financial Reports"
-                          required
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-black mb-1">
-                          Description
-                        </label>
-                        <textarea
-                          name="description"
-                          placeholder="Describe the purpose of this bucket (optional)"
-                          rows={3}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <div className="bg-blue-50 p-3 rounded-md border border-blue-100">
-                        <p className="text-xs text-blue-800">
-                          This will create a new Pinecone index with
-                          llama-text-embed-v2 for semantic search.
-                        </p>
-                      </div>
-                      <div className="flex space-x-3 pt-2">
-                        <button
-                          type="submit"
-                          disabled={createLoading}
-                          className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {createLoading ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Creating...
-                            </>
-                          ) : (
-                            "Create Bucket"
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowCreateForm(false)}
-                          className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Create Bucket Modal */}
+            <NewBucketModal
+              isOpen={showCreateForm}
+              onClose={() => setShowCreateForm(false)}
+              onCreateBucket={handleCreateBucket}
+              createLoading={createLoading}
+            />
 
             {/* Buckets List */}
             <div className="flex-1 overflow-y-auto">
@@ -808,20 +791,26 @@ export default function WhitepapersPage() {
                                 onClick={() => {
                                   if (
                                     confirm(
-                                      "Are you sure you want to delete this whitepaper?"
+                                      "Are you sure you want to delete this whitepaper? This will permanently remove it from storage, database, and search index."
                                     )
                                   ) {
-                                    // TODO: Implement delete functionality
-                                    console.log(
-                                      "Delete whitepaper:",
-                                      whitepaper.id
-                                    );
+                                    handleDeleteWhitepapers([whitepaper.id]);
                                   }
                                 }}
-                                className="inline-flex items-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md text-sm font-medium transition-colors"
+                                disabled={deletingIds.has(whitepaper.id)}
+                                className="inline-flex items-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
                               >
-                                <TrashIcon className="w-4 h-4 mr-1" />
-                                Delete
+                                {deletingIds.has(whitepaper.id) ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-1"></div>
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <TrashIcon className="w-4 h-4 mr-1" />
+                                    Delete
+                                  </>
+                                )}
                               </button>
 
                               {/* Generate Content Button - Only show when completed */}
@@ -932,9 +921,30 @@ export default function WhitepapersPage() {
                                     )}
                                   </button>
                                 )}
-                                <button className="w-full inline-flex items-center justify-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md text-sm font-medium">
-                                  <TrashIcon className="w-4 h-4 mr-1" />
-                                  Delete
+                                <button
+                                  onClick={() => {
+                                    if (
+                                      confirm(
+                                        "Are you sure you want to delete this whitepaper? This will permanently remove it from storage, database, and search index."
+                                      )
+                                    ) {
+                                      handleDeleteWhitepapers([whitepaper.id]);
+                                    }
+                                  }}
+                                  disabled={deletingIds.has(whitepaper.id)}
+                                  className="w-full inline-flex items-center justify-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium"
+                                >
+                                  {deletingIds.has(whitepaper.id) ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-1"></div>
+                                      Deleting...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <TrashIcon className="w-4 h-4 mr-1" />
+                                      Delete
+                                    </>
+                                  )}
                                 </button>
                               </div>
                             </div>

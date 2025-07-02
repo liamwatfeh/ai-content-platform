@@ -14,11 +14,11 @@ export const pinecone = new Pinecone({
 /**
  * Create a new Pinecone index with integrated embedding model
  * This allows us to upsert text directly without creating embeddings ourselves
- * - Model: multilingual-e5-large (high-quality multilingual model)
+ * - Model: llama-text-embed-v2 (Meta's LLaMA text embedding model)
  * - Capacity: Serverless
  * - Cloud: AWS
  * - Region: us-east-1 (Virginia)
- * - Dimension: 1024 (automatic based on model)
+ * - Dimension: 4096 (automatic based on model)
  * - Metric: cosine
  */
 export async function createPineconeIndex(
@@ -36,7 +36,7 @@ export async function createPineconeIndex(
       cloud: "aws",
       region: "us-east-1",
       embed: {
-        model: "multilingual-e5-large",
+        model: "llama-text-embed-v2",
         fieldMap: { text: "text" }, // Map the field that contains text to be embedded
       },
       deletionProtection: "disabled", // Allow deletion for development
@@ -123,6 +123,40 @@ export async function deletePineconeIndex(
         error instanceof Error
           ? error.message
           : "Unknown error deleting Pinecone index",
+    };
+  }
+}
+
+/**
+ * Delete a namespace from a Pinecone index
+ */
+export async function deletePineconeNamespace(
+  indexName: string,
+  namespace: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(
+      `🗑️ [PINECONE] Deleting namespace '${namespace}' from index: ${indexName}`
+    );
+
+    const index = pinecone.Index(indexName);
+    await index.namespace(namespace).deleteAll();
+
+    console.log(
+      `✅ [PINECONE] Namespace '${namespace}' deleted successfully from index: ${indexName}`
+    );
+    return { success: true };
+  } catch (error) {
+    console.error(
+      `❌ [PINECONE] Error deleting namespace '${namespace}' from index ${indexName}:`,
+      error
+    );
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error deleting Pinecone namespace",
     };
   }
 }
