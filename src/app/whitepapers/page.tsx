@@ -760,29 +760,29 @@ export default function WhitepapersPage() {
                               {/* Title and Filename Section */}
                               <div className="mb-4">
                                 <h3 className="text-xl font-semibold text-gray-900 leading-tight mb-1">
-                                  {whitepaper.title}
-                                </h3>
+                                {whitepaper.title}
+                              </h3>
                                 <p className="text-sm text-gray-500">
-                                  {whitepaper.filename}
-                                </p>
-                              </div>
+                                {whitepaper.filename}
+                              </p>
+                          </div>
 
                               {/* Metadata Section */}
                               <div className="flex flex-col space-y-2">
                                 <div className="text-sm text-gray-600">
                                   Uploaded: {formatDate(whitepaper.upload_date)}
-                                </div>
+                            </div>
                                 <div className="text-sm text-gray-600">
                                   Size:{" "}
-                                  {formatFileSize(whitepaper.file_size_bytes)}
-                                </div>
-                                {whitepaper.chunk_count > 0 && (
+                                {formatFileSize(whitepaper.file_size_bytes)}
+                            </div>
+                            {whitepaper.chunk_count > 0 && (
                                   <div className="text-sm text-gray-600">
                                     Chunks: {whitepaper.chunk_count}
-                                  </div>
-                                )}
                               </div>
-                            </div>
+                            )}
+                              </div>
+                          </div>
 
                             {/* Action Buttons - Bottom Right */}
                             <div className="absolute bottom-6 right-6 flex items-center space-x-3">
@@ -814,13 +814,13 @@ export default function WhitepapersPage() {
                               </button>
 
                               {/* Generate Content Button - Only show when completed */}
-                              {whitepaper.processing_status === "completed" && (
+                            {whitepaper.processing_status === "completed" && (
                                 <Link
                                   href={`/generate-content?whitepaper=${whitepaper.id}`}
                                   className="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
                                 >
                                   <SparklesIcon className="w-4 h-4 mr-1" />
-                                  Generate Content
+                                Generate Content
                                 </Link>
                               )}
 
@@ -841,8 +841,8 @@ export default function WhitepapersPage() {
                                   ) : (
                                     "Retry"
                                   )}
-                                </button>
-                              )}
+                              </button>
+                            )}
                             </div>
                           </div>
 
@@ -942,7 +942,7 @@ export default function WhitepapersPage() {
                                       Delete
                                     </>
                                   )}
-                                </button>
+                            </button>
                               </div>
                             </div>
                           </div>

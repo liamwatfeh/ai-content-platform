@@ -50,7 +50,7 @@ interface WhitepaperChunk {
 }
 
 // Configuration
-const CHUNK_SIZE = 1600; // tokens per chunk
+const CHUNK_SIZE = 200; // tokens per chunk
 const CONTEXTUAL_PROMPT = `<document>
 {DOCUMENT_TEXT}
 </document>
@@ -100,7 +100,7 @@ export async function processWhitepaper(
 
     // Split into chunks
     console.log(`✂️ [PROCESSOR] Starting document chunking`);
-    const textChunks = splitIntoChunks(documentText, 800);
+    const textChunks = splitIntoChunks(documentText, 200);
     console.log(
       `✅ [PROCESSOR] Chunking complete. Generated ${textChunks.length} chunks`
     );
