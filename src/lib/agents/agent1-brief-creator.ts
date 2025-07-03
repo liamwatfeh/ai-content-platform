@@ -35,10 +35,9 @@ export async function briefCreatorAgent(
   console.log("🤖 Agent 1: Brief Creator starting...");
 
   try {
-    // Initialize OpenAI with GPT-4 (supports temperature)
+    // Initialize OpenAI with o3-2025-04-16 (does not support temperature)
     const llm = new ChatOpenAI({
-      model: "gpt-4", // Use GPT-4 which supports temperature
-      temperature: 0.7,
+      model: "o3-2025-04-16", // Use o3-2025-04-16 model
       apiKey: process.env.OPENAI_API_KEY,
     });
 
@@ -129,7 +128,7 @@ Transform the raw user input into a comprehensive, structured marketing brief th
 - Call-to-action strategy
 
 Make the brief detailed, specific, and actionable. Focus on clarity and completeness.`,
-  
+
   userPromptTemplate: `Create a marketing brief from this information:
 
 Business Context: {business_context}

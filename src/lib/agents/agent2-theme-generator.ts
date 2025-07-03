@@ -37,10 +37,9 @@ export async function themeGeneratorAgent(
   console.log(`🔄 Regeneration count: ${state.regenerationCount}`);
 
   try {
-    // Initialize OpenAI model (GPT-4 supports temperature)
+    // Initialize OpenAI model (o3-2025-04-16 does not support temperature)
     const llm = new ChatOpenAI({
-      model: "gpt-4", // Use GPT-4 which supports temperature
-      temperature: 0.7,
+      model: "o3-2025-04-16", // Use o3-2025-04-16 model
       apiKey: process.env.OPENAI_API_KEY,
     });
 
