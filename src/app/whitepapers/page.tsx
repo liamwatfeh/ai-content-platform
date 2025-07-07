@@ -59,6 +59,9 @@ export default function WhitepapersPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [deletingBucketIds, setDeletingBucketIds] = useState<Set<string>>(
+    new Set()
+  );
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon, current: false },
@@ -286,6 +289,51 @@ export default function WhitepapersPage() {
       setRetryingIds((prev) => {
         const newSet = new Set(prev);
         whitepaperIds.forEach((id) => newSet.delete(id));
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteBucket = async (bucketId: string, bucketName: string) => {
+    setDeletingBucketIds((prev) => new Set([...prev, bucketId]));
+
+    try {
+      console.log(`🗑️ Deleting bucket: ${bucketName} (${bucketId})`);
+
+      const response = await fetch(`/api/reference-buckets?id=${bucketId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete bucket");
+      }
+
+      console.log(`✅ Bucket deleted successfully: ${bucketName}`);
+
+      // Remove from state
+      setBuckets((prev) => prev.filter((bucket) => bucket.id !== bucketId));
+
+      // If the deleted bucket was selected, clear selection
+      if (selectedBucket?.id === bucketId) {
+        setSelectedBucket(null);
+        setWhitepapers([]);
+      }
+
+      // Show success message (you could add a toast notification here)
+      alert(
+        `Bucket "${bucketName}" and its Pinecone index have been successfully deleted.`
+      );
+    } catch (error) {
+      console.error("❌ Error deleting bucket:", error);
+      alert(
+        `Failed to delete bucket: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    } finally {
+      setDeletingBucketIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(bucketId);
         return newSet;
       });
     }
@@ -577,7 +625,7 @@ export default function WhitepapersPage() {
                     <div
                       key={bucket.id}
                       onClick={() => setSelectedBucket(bucket)}
-                      className={`p-3 rounded-lg cursor-pointer mb-2 transition-colors ${
+                      className={`p-3 rounded-lg cursor-pointer mb-2 transition-colors relative ${
                         selectedBucket?.id === bucket.id
                           ? "bg-blue-50 border-2 border-blue-200"
                           : "bg-white border-2 border-transparent hover:bg-gray-50"
@@ -587,7 +635,30 @@ export default function WhitepapersPage() {
                         <h3 className="font-medium text-gray-900 text-sm">
                           {bucket.name}
                         </h3>
-                        {getBucketStatusBadge(bucket.status)}
+                        <div className="flex items-center gap-2">
+                          {getBucketStatusBadge(bucket.status)}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (
+                                confirm(
+                                  `Are you sure you want to delete "${bucket.name}"?\n\nThis will:\n• Delete the Pinecone index: ${bucket.pinecone_index_name}\n• Delete all whitepapers in this bucket\n• Delete all associated content generations\n\nThis action cannot be undone.`
+                                )
+                              ) {
+                                handleDeleteBucket(bucket.id, bucket.name);
+                              }
+                            }}
+                            disabled={deletingBucketIds.has(bucket.id)}
+                            className="inline-flex items-center p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete bucket"
+                          >
+                            {deletingBucketIds.has(bucket.id) ? (
+                              <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <TrashIcon className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       {bucket.description && (
                         <p className="text-xs text-gray-500 mb-2">
@@ -634,13 +705,43 @@ export default function WhitepapersPage() {
                         {selectedBucket.description || "No description"}
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowUploadZone(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                      <CloudArrowUpIcon className="h-4 w-4 mr-2" />
-                      Upload Whitepapers
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Are you sure you want to delete "${selectedBucket.name}"?\n\nThis will:\n• Delete the Pinecone index: ${selectedBucket.pinecone_index_name}\n• Delete all whitepapers in this bucket\n• Delete all associated content generations\n\nThis action cannot be undone.`
+                            )
+                          ) {
+                            handleDeleteBucket(
+                              selectedBucket.id,
+                              selectedBucket.name
+                            );
+                          }
+                        }}
+                        disabled={deletingBucketIds.has(selectedBucket.id)}
+                        className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {deletingBucketIds.has(selectedBucket.id) ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <TrashIcon className="h-4 w-4 mr-2" />
+                            Delete Bucket
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setShowUploadZone(true)}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                      >
+                        <CloudArrowUpIcon className="h-4 w-4 mr-2" />
+                        Upload Whitepapers
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -760,29 +861,29 @@ export default function WhitepapersPage() {
                               {/* Title and Filename Section */}
                               <div className="mb-4">
                                 <h3 className="text-xl font-semibold text-gray-900 leading-tight mb-1">
-                                {whitepaper.title}
-                              </h3>
+                                  {whitepaper.title}
+                                </h3>
                                 <p className="text-sm text-gray-500">
-                                {whitepaper.filename}
-                              </p>
-                          </div>
+                                  {whitepaper.filename}
+                                </p>
+                              </div>
 
                               {/* Metadata Section */}
                               <div className="flex flex-col space-y-2">
                                 <div className="text-sm text-gray-600">
                                   Uploaded: {formatDate(whitepaper.upload_date)}
-                            </div>
+                                </div>
                                 <div className="text-sm text-gray-600">
                                   Size:{" "}
-                                {formatFileSize(whitepaper.file_size_bytes)}
-                            </div>
-                            {whitepaper.chunk_count > 0 && (
+                                  {formatFileSize(whitepaper.file_size_bytes)}
+                                </div>
+                                {whitepaper.chunk_count > 0 && (
                                   <div className="text-sm text-gray-600">
                                     Chunks: {whitepaper.chunk_count}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                              </div>
-                          </div>
+                            </div>
 
                             {/* Action Buttons - Bottom Right */}
                             <div className="absolute bottom-6 right-6 flex items-center space-x-3">
@@ -814,13 +915,13 @@ export default function WhitepapersPage() {
                               </button>
 
                               {/* Generate Content Button - Only show when completed */}
-                            {whitepaper.processing_status === "completed" && (
+                              {whitepaper.processing_status === "completed" && (
                                 <Link
                                   href={`/generate-content?whitepaper=${whitepaper.id}`}
                                   className="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
                                 >
                                   <SparklesIcon className="w-4 h-4 mr-1" />
-                                Generate Content
+                                  Generate Content
                                 </Link>
                               )}
 
@@ -841,8 +942,8 @@ export default function WhitepapersPage() {
                                   ) : (
                                     "Retry"
                                   )}
-                              </button>
-                            )}
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -942,7 +1043,7 @@ export default function WhitepapersPage() {
                                       Delete
                                     </>
                                   )}
-                            </button>
+                                </button>
                               </div>
                             </div>
                           </div>

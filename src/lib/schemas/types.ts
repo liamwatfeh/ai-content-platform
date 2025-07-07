@@ -27,6 +27,12 @@ export const BasicWorkflowState = z.object({
   ctaType: z.enum(["download_whitepaper", "contact_us"]),
   ctaUrl: z.string().optional().describe("URL for whitepaper download"),
 
+  // Selected whitepaper for processing
+  selectedWhitepaperId: z
+    .string()
+    .optional()
+    .describe("ID of the selected whitepaper"),
+
   // Agent 1 output - the generated marketing brief
   marketingBrief: z.string().optional(),
 
@@ -63,6 +69,7 @@ export const BasicStateAnnotation = Annotation.Root({
   socialPostsCount: Annotation<number>,
   ctaType: Annotation<"download_whitepaper" | "contact_us">,
   ctaUrl: Annotation<string>,
+  selectedWhitepaperId: Annotation<string>,
   marketingBrief: Annotation<string>,
   generatedThemes: Annotation<Theme[]>,
   previousThemes: Annotation<Theme[]>({

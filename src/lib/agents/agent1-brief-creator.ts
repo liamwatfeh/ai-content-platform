@@ -101,9 +101,29 @@ ${state.ctaUrl ? `CTA URL: ${state.ctaUrl}` : ""}`;
     console.log("✅ Agent 1: Brief created successfully");
 
     return {
+      // Preserve all input state fields
+      businessContext: state.businessContext,
+      targetAudience: state.targetAudience,
+      marketingGoals: state.marketingGoals,
+      articlesCount: state.articlesCount,
+      linkedinPostsCount: state.linkedinPostsCount,
+      socialPostsCount: state.socialPostsCount,
+      ctaType: state.ctaType,
+      ctaUrl: state.ctaUrl,
+      selectedWhitepaperId: state.selectedWhitepaperId, // IMPORTANT: Preserve this for Agent 2!
+
+      // Preserve any existing workflow state
+      previousThemes: state.previousThemes,
+      searchHistory: state.searchHistory,
+      regenerationCount: state.regenerationCount,
+
+      // Add the generated marketing brief
       marketingBrief,
+
+      // Update workflow status
       currentStep: "brief_complete",
-      isComplete: true,
+      isComplete: false, // Keep as false since we need to continue to Agent 2
+      needsHumanInput: false,
     };
   } catch (error) {
     console.error("❌ Agent 1 Error:", error);

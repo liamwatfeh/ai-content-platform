@@ -50,7 +50,7 @@ interface WhitepaperChunk {
 }
 
 // Configuration
-const CHUNK_SIZE = 200; // tokens per chunk
+const CHUNK_SIZE = 300; // tokens per chunk
 const CONTEXTUAL_PROMPT = `<document>
 {DOCUMENT_TEXT}
 </document>
@@ -100,7 +100,7 @@ export async function processWhitepaper(
 
     // Split into chunks
     console.log(`✂️ [PROCESSOR] Starting document chunking`);
-    const textChunks = splitIntoChunks(documentText, 200);
+    const textChunks = splitIntoChunks(documentText, CHUNK_SIZE);
     console.log(
       `✅ [PROCESSOR] Chunking complete. Generated ${textChunks.length} chunks`
     );
@@ -274,69 +274,79 @@ function splitIntoChunks(text: string, maxTokens: number = 800): string[] {
   const chunks: string[] = [];
   let currentChunk = "";
 
-  for (
-    let sentenceIndex = 0;
-    sentenceIndex < sentences.length;
-    sentenceIndex++
-  ) {
-    const sentence = sentences[sentenceIndex];
-    const testChunk = currentChunk + (currentChunk ? " " : "") + sentence;
-    const tokenCount = encoder.encode(testChunk).length;
+  for (const sentence of sentences) {
+    const sentenceTokenCount = encoder.encode(sentence).length;
 
-    console.log(
-      `🔍 [CHUNKER] Sentence ${sentenceIndex + 1}: ${sentence.length} chars, test chunk tokens: ${tokenCount}`
-    );
-
-    if (tokenCount <= maxTokens) {
-      currentChunk = testChunk;
-    } else {
-      // If current chunk has content, save it and start new chunk
+    // Handle sentences that are themselves longer than the max token limit
+    if (sentenceTokenCount > maxTokens) {
+      // First, push any existing content as a chunk.
       if (currentChunk) {
         chunks.push(currentChunk.trim());
         console.log(
-          `✅ [CHUNKER] Chunk ${chunks.length} created: ${currentChunk.length} chars, ${encoder.encode(currentChunk).length} tokens`
+          `✅ [CHUNKER] Chunk ${chunks.length} created: ${
+            currentChunk.length
+          } chars, ${encoder.encode(currentChunk).length} tokens`
         );
-        currentChunk = sentence;
-      } else {
-        // If single sentence is too long, split by words
-        console.log(
-          `⚠️ [CHUNKER] Single sentence too long, splitting by words`
-        );
-        const words = sentence.split(" ");
-        let wordChunk = "";
+        currentChunk = "";
+      }
 
-        for (const word of words) {
-          const testWordChunk = wordChunk + (wordChunk ? " " : "") + word;
-          if (encoder.encode(testWordChunk).length <= maxTokens) {
-            wordChunk = testWordChunk;
-          } else {
-            if (wordChunk) {
-              chunks.push(wordChunk.trim());
-              console.log(
-                `✅ [CHUNKER] Word-split chunk ${chunks.length} created: ${wordChunk.length} chars`
-              );
-              wordChunk = word;
-            } else {
-              // Single word is too long, just add it
-              chunks.push(word);
-              console.log(
-                `⚠️ [CHUNKER] Single word too long, added as chunk: ${word.length} chars`
-              );
-            }
+      // Now, split the oversized sentence by words.
+      console.log(
+        `⚠️ [CHUNKER] Single sentence (${sentenceTokenCount} tokens) is too long, splitting by words.`
+      );
+      const words = sentence.split(" ");
+      let wordChunk = "";
+      for (const word of words) {
+        const testWordChunk = wordChunk + (wordChunk ? " " : "") + word;
+        if (encoder.encode(testWordChunk).length <= maxTokens) {
+          wordChunk = testWordChunk;
+        } else {
+          // The word chunk is full. Push it.
+          if (wordChunk) {
+            chunks.push(wordChunk.trim());
+            console.log(
+              `✅ [CHUNKER] Word-split chunk ${chunks.length} created: ${wordChunk.length} chars`
+            );
           }
-        }
-        if (wordChunk) {
-          currentChunk = wordChunk;
+          // Start a new word chunk with the current word.
+          wordChunk = word;
         }
       }
+
+      // The remainder of the words becomes the new currentChunk.
+      // This allows it to be combined with subsequent sentences.
+      currentChunk = wordChunk;
+      continue; // Proceed to the next sentence
+    }
+
+    const testChunk = currentChunk + (currentChunk ? " " : "") + sentence;
+    const tokenCount = encoder.encode(testChunk).length;
+
+    if (tokenCount <= maxTokens) {
+      // The sentence fits, add it to the current chunk.
+      currentChunk = testChunk;
+    } else {
+      // The sentence doesn't fit. Push the current chunk.
+      if (currentChunk) {
+        chunks.push(currentChunk.trim());
+        console.log(
+          `✅ [CHUNKER] Chunk ${chunks.length} created: ${
+            currentChunk.length
+          } chars, ${encoder.encode(currentChunk).length} tokens`
+        );
+      }
+      // Start a new chunk with the current sentence.
+      currentChunk = sentence;
     }
   }
 
-  // Add final chunk if it has content
+  // Add the final chunk if it has content
   if (currentChunk.trim()) {
     chunks.push(currentChunk.trim());
     console.log(
-      `✅ [CHUNKER] Final chunk created: ${currentChunk.length} chars, ${encoder.encode(currentChunk).length} tokens`
+      `✅ [CHUNKER] Final chunk created: ${
+        currentChunk.length
+      } chars, ${encoder.encode(currentChunk).length} tokens`
     );
   }
 

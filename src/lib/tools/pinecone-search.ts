@@ -227,6 +227,72 @@ export async function getWhitepaperConfig(
   }
 }
 
+// Helper function to get whitepaper configuration by ID
+export async function getWhitepaperConfigById(
+  whitepaperIdParam: string
+): Promise<{ namespace: string; indexName: string }> {
+  console.log(`🔍 Getting config for whitepaper ID: ${whitepaperIdParam}`);
+
+  try {
+    // Query whitepapers table to get namespace and reference_bucket_id by ID
+    const { data: whitepaper, error: whitepaperError } = await supabase
+      .from("whitepapers")
+      .select("pinecone_namespace, reference_bucket_id, filename, title")
+      .eq("id", whitepaperIdParam)
+      .single();
+
+    if (whitepaperError) {
+      throw new Error(
+        `Database error querying whitepapers: ${whitepaperError.message}`
+      );
+    }
+
+    if (!whitepaper) {
+      throw new Error(`No whitepaper found with ID: ${whitepaperIdParam}`);
+    }
+
+    console.log(
+      `📄 Found whitepaper: ${whitepaper.title} (${whitepaper.filename}) with namespace: ${whitepaper.pinecone_namespace}`
+    );
+
+    // Query reference_buckets table to get the index name
+    const { data: bucket, error: bucketError } = await supabase
+      .from("reference_buckets")
+      .select("pinecone_index_name, name")
+      .eq("id", whitepaper.reference_bucket_id)
+      .single();
+
+    if (bucketError) {
+      throw new Error(
+        `Database error querying reference buckets: ${bucketError.message}`
+      );
+    }
+
+    if (!bucket) {
+      throw new Error(
+        `No reference bucket found for whitepaper ID: ${whitepaperIdParam}`
+      );
+    }
+
+    console.log(
+      `🪣 Found bucket: ${bucket.name} with index: ${bucket.pinecone_index_name}`
+    );
+
+    const config = {
+      namespace: whitepaper.pinecone_namespace,
+      indexName: bucket.pinecone_index_name,
+    };
+
+    console.log(`✅ Config retrieved:`, config);
+    return config;
+  } catch (error) {
+    console.error("❌ Error getting whitepaper config by ID:", error);
+    throw new Error(
+      `Failed to get whitepaper config: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+}
+
 // Helper function to list available whitepapers for debugging
 export async function listAvailableWhitepapers(): Promise<
   Array<{ name: string; namespace: string; bucketName: string }>

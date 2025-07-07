@@ -210,17 +210,30 @@ export default function GenerateContentPage() {
 
   // Real API call to generate themes
   const generateThemes = async () => {
+    if (!selectedWhitepaper) {
+      setError("No whitepaper selected");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setCurrentStep(3);
 
     try {
       console.log("🚀 Calling theme generation API...", briefData);
+      console.log(
+        "📄 Selected whitepaper:",
+        selectedWhitepaper.id,
+        selectedWhitepaper.title
+      );
 
       const response = await fetch("/api/generate-themes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(briefData),
+        body: JSON.stringify({
+          ...briefData,
+          selectedWhitepaperId: selectedWhitepaper.id,
+        }),
       });
 
       const data = await response.json();
@@ -254,8 +267,8 @@ export default function GenerateContentPage() {
 
   // Real API call to regenerate themes
   const regenerateThemes = async () => {
-    if (!currentWorkflowState) {
-      setError("No previous workflow state found");
+    if (!currentWorkflowState || !selectedWhitepaper) {
+      setError("No previous workflow state or whitepaper selected");
       return;
     }
 
@@ -272,6 +285,7 @@ export default function GenerateContentPage() {
           action: "regenerate_themes",
           currentState: {
             ...briefData,
+            selectedWhitepaperId: selectedWhitepaper.id,
             generatedThemes: themes,
             previousThemes: [],
             searchHistory: [],
@@ -314,8 +328,10 @@ export default function GenerateContentPage() {
 
   // Handle theme selection
   const handleThemeSelection = async () => {
-    if (!selectedTheme || !currentWorkflowState) {
-      setError("No theme selected or workflow state missing");
+    if (!selectedTheme || !currentWorkflowState || !selectedWhitepaper) {
+      setError(
+        "No theme selected, workflow state missing, or whitepaper not selected"
+      );
       return;
     }
 
@@ -333,6 +349,7 @@ export default function GenerateContentPage() {
           selectedThemeId: selectedTheme.id,
           currentState: {
             ...briefData,
+            selectedWhitepaperId: selectedWhitepaper.id,
             generatedThemes: themes,
             currentStep: "awaiting_theme_selection",
             needsHumanInput: true,

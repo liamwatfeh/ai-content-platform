@@ -1,22 +1,17 @@
 // Agent 2: Theme Generator
-// Model: claude-sonnet-4-20250514 (Claude Sonnet 4 with thinking enabled)
-// Purpose: Generate 3 concept seeds based on iterative research and marketing brief
+// Model: o3-2025-04-16 or Claude Sonnet 4 (with thinking enabled)
+// Purpose: Generate 6 concept seeds based on iterative research and marketing brief
 
-import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
-import { pineconeSearchTool } from "../tools/pinecone-search";
 import { BasicWorkflowState, Theme } from "../schemas/types";
-import { getWhitepaperConfigById } from "../tools/pinecone-search";
+import {
+  pineconeSearchTool,
+  getWhitepaperConfig,
+  listAvailableWhitepapers,
+} from "../tools/pinecone-search";
 
-// Type for search results
-interface SearchResult {
-  id: string;
-  score?: number;
-  text: string;
-  category?: string;
-}
-
-// Schema for Agent 2's structured output - updated for 3 concept seeds
+// Schema for Agent 2's structured output - updated for 6 concept seeds
 const ThemeGenerationOutputSchema = z.object({
   themes: z
     .array(
@@ -28,7 +23,7 @@ const ThemeGenerationOutputSchema = z.object({
         detailedDescription: z.string(),
       })
     )
-    .length(3), // Changed from 6 to 3 concept seeds
+    .length(6), // Changed from 3 to 6 concept seeds
   searchSummary: z
     .string()
     .describe("Summary of iterative research findings and methodology"),
@@ -42,40 +37,39 @@ export async function themeGeneratorAgent(
   console.log(`🔄 Regeneration count: ${state.regenerationCount}`);
 
   try {
-    // Initialize Claude Sonnet 4 model
-    const llm = new ChatAnthropic({
-      model: "claude-sonnet-4-20250514", // Claude Sonnet 4 with thinking enabled
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      temperature: 0.3,
+    // Initialize OpenAI model (o3-2025-04-16 does not support temperature)
+    const llm = new ChatOpenAI({
+      model: "o3-2025-04-16", // Use o3-2025-04-16 model
+      apiKey: process.env.OPENAI_API_KEY,
     });
 
     // Get whitepaper configuration dynamically from database
     console.log("🔍 Getting whitepaper configuration from database...");
 
-    // Validate that a whitepaper was selected
-    if (!state.selectedWhitepaperId) {
-      throw new Error(
-        "No whitepaper selected. Please select a whitepaper first."
-      );
-    }
-
-    // Get whitepaper configuration based on selected whitepaper ID
+    // For testing, specifically use the "Prepared Minds by Brilliant Noise" whitepaper
+    // which has smaller chunks that work with reranking
     let whitepaperConfig;
     try {
-      console.log(
-        `📄 Using selected whitepaper ID: ${state.selectedWhitepaperId}`
-      );
-      whitepaperConfig = await getWhitepaperConfigById(
-        state.selectedWhitepaperId
-      );
+      whitepaperConfig = await getWhitepaperConfig("Prepared Minds");
       console.log(
         `✅ Config retrieved: Index=${whitepaperConfig.indexName}, Namespace=${whitepaperConfig.namespace}`
       );
-    } catch (err) {
-      console.error("❌ Failed to get whitepaper configuration:", err);
-      throw new Error(
-        `Failed to get whitepaper configuration: ${err instanceof Error ? err.message : "Unknown error"}`
-      );
+
+      // Verify we got the right whitepaper
+      if (!whitepaperConfig.namespace.includes("Prepared-Minds")) {
+        throw new Error("Wrong whitepaper found, will use fallback");
+      }
+    } catch (error) {
+      console.log("🔄 Fallback: Using first available whitepaper...");
+      const availableWhitepapers = await listAvailableWhitepapers();
+      if (availableWhitepapers.length === 0) {
+        throw new Error(
+          "No whitepapers found in database. Please upload a whitepaper first."
+        );
+      }
+      const firstWhitepaper = availableWhitepapers[0];
+      whitepaperConfig = await getWhitepaperConfig(firstWhitepaper.name);
+      console.log(`📄 Using fallback: ${firstWhitepaper.name}`);
     }
 
     // Parse the marketing brief from Agent 1
@@ -90,27 +84,23 @@ export async function themeGeneratorAgent(
       throw new Error("Invalid marketing brief format");
     }
 
-    // Get whitepaper context for the new prompt
-    const whitepaperContext =
-      whitepaperConfig.namespace || "Company whitepaper content";
-
     // Step 1: Agent-driven iterative research
     console.log("🔍 Starting agent-driven iterative research...");
 
     const systemPrompt = `**SITUATION**: You are the critical intelligence-gathering and initial ideation stage in the Content Studio pipeline. You've received structured strategic analysis from the Brief Analysis Agent, and you're responsible for both uncovering unique insights AND suggesting initial concept seeds that showcase the company's competitive advantages.
 
-**PROBLEM**: You need to systematically explore the company's whitepaper through iterative searching - starting broad, then drilling down into the most promising findings with increasingly specific queries. A few surface-level searches won't uncover the deep insights needed. You must follow interesting threads and dig deeper when you find compelling information, building a comprehensive understanding before suggesting concept seeds.
+**PROBLEM**: You need to systematically explore the company's proprietary documents through iterative searching - starting broad, then drilling down into the most promising findings with increasingly specific queries. A few surface-level searches won't uncover the deep insights needed. You must follow interesting threads and dig deeper when you find compelling information, building a comprehensive understanding before suggesting concept seeds.
 
-**ASPIRATION**: Become the "treasure hunter and initial creative" who conducts thorough, iterative research to uncover the whitepaper's most valuable insights. Start with broad strategic queries based on the whitepaper context, analyze what's promising, then drill deeper with targeted follow-up queries. Build comprehensive understanding through 8-12 strategic searches before synthesizing findings into concept seeds.
+**ASPIRATION**: Become the "treasure hunter and initial creative" who conducts thorough, iterative research to uncover the company's most valuable proprietary insights. Start with broad strategic queries, analyze what's promising, then drill deeper with targeted follow-up queries. Build comprehensive understanding through 8-12 strategic searches before synthesizing findings into concept seeds.
 
 **RESULTS**: Execute systematic iterative research following this approach:
 
 **SEARCH STRATEGY**:
-1. **Initial Broad Phase (3-4 queries)**: Start with high-level topics from whitepaper context
+1. **Initial Broad Phase (3-4 queries)**: Start with high-level strategic themes from brief analysis
 2. **Analysis Phase**: Evaluate which broad searches yielded the most promising insights  
 3. **Deep Dive Phase (4-6 queries)**: Create targeted queries to drill deeper into promising areas
 4. **Follow-up Phase (2-4 queries)**: Pursue specific details, statistics, or methodologies found in deep dives
-5. **Synthesis Phase**: Transform comprehensive findings into 3 concept seeds (MUST BE 3)
+5. **Synthesis Phase**: Transform comprehensive findings into 6 concept seeds (MUST BE 6)
 
 **EACH SEARCH ITERATION MUST**:
 - Build on previous findings rather than repeat similar searches
@@ -122,7 +112,7 @@ export async function themeGeneratorAgent(
 
 **WORKFLOW CONTEXT**: You're the "First Ideas" agent conducting thorough investigative research. The Brief Analysis Agent has provided strategic direction, and your concept seeds will feed into the Concept Synthesis Agent, who will refine and expand your ideas. Don't rush - comprehensive research now saves work later and produces better concepts.
 
-**STAGE OBJECTIVE**: Conduct thorough iterative research (8-12 searches minimum) to uncover deep insights and transform them into compelling concept seeds.
+**STAGE OBJECTIVE**: Conduct thorough iterative research (8-12 searches minimum) to uncover deep proprietary insights and transform them into compelling concept seeds.
 
 **SEARCH EXECUTION REQUIREMENTS**:
 - **Minimum 8 searches, target 10-12 searches**
@@ -131,28 +121,20 @@ export async function themeGeneratorAgent(
 - **Follow promising threads until exhausted**
 - **Document your reasoning for each query**
 
-**SEARCH QUERY GUIDELINES**:
-- Keep queries simple and natural (3-8 words)
-- Base queries on the whitepaper context provided
-- Use business language, not technical jargon
-- Focus on concepts that would actually be in a business whitepaper
-- NO references to specific internal documents, surveys, or proprietary databases
+**CONCEPT SEED REQUIREMENTS**:
+- Generate exactly 3 concept seeds
+- Each concept must be distinct and non-overlapping
+- Avoid any themes similar to these previous ones: ${JSON.stringify(state.previousThemes?.map((t) => t.title) || [])}
+- Base all concepts on discoveries from your iterative research
+- Focus on proprietary insights that showcase competitive advantages
 
-**CRITICAL OUTPUT INSTRUCTIONS**:
-- DO NOT use any thinking tags like <think> or </think>
-- DO NOT use any tool calls like <search-vector-database>
-- DO NOT include any internal reasoning or thought processes in your response
-- Return ONLY clean, valid JSON without any additional text, tags, or formatting
-- Ensure all JSON objects are properly closed with matching braces
-- Do not truncate or cut off your response - complete all 3 concept themes
+**OUTPUT FORMAT**: You must determine your own search queries and execute them iteratively. For each search, provide:
+1. Your reasoning for the query
+2. The search query itself
+3. Analysis of what you found
+4. How it influences your next search
 
-**TIPS**:
-YOU MUST HAVE A BIAS FOR INCLUDING qualitative and/or quantitative data for the key insights!! 
-You will have large amount of data returned and you will have a lot to synthesise - don't forget to then output the concept ideas!
-Also make sure that each idea is numbered (as seen in the output schema)
-
-**OUTPUT FORMAT**: 
-Return your response as valid JSON with this exact structure (NO OTHER TEXT OR TAGS):
+After completing 8-12 searches, synthesize your findings into 3 concept seeds with this exact JSON structure:
 {
   "searchPlan": "Your overall research strategy and reasoning",
   "searchQueries": ["query1", "query2", "etc"],
@@ -164,50 +146,35 @@ Return your response as valid JSON with this exact structure (NO OTHER TEXT OR T
       "description": "Brief description...",
       "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
       "detailedDescription": "Detailed description with specific research insights..."
-    },
-    {
-      "id": "concept-2",
-      "title": "Concept Title",
-      "description": "Brief description...",
-      "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
-      "detailedDescription": "Detailed description with specific research insights..."
-    },
-    {
-      "id": "concept-3",
-      "title": "Concept Title",
-      "description": "Brief description...",
-      "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
-      "detailedDescription": "Detailed description with specific research insights..."
     }
   ],
   "searchSummary": "Summary of iterative research findings and methodology"
 }`;
 
-    const userPrompt = `**WHITEPAPER CONTEXT**: ${whitepaperContext}
+    const userPrompt = `Execute iterative research and concept generation based on:
 
 **MARKETING BRIEF CONTEXT**:
 - Business Context: ${state.businessContext}
 - Target Audience: ${state.targetAudience}
 - Marketing Goals: ${state.marketingGoals}
 - Executive Summary: ${marketingBrief.executiveSummary || "Not provided"}
-- Campaign Objectives: ${JSON.stringify(
-      marketingBrief.campaignObjectives || []
-    )}
+- Campaign Objectives: ${JSON.stringify(marketingBrief.campaignObjectives || [])}
 - Key Messages: ${JSON.stringify(marketingBrief.keyMessages || [])}
 - Target Persona: ${JSON.stringify(marketingBrief.targetPersona || {})}
 
 **PREVIOUS THEMES TO AVOID**:
-${
-  state.previousThemes
-    ?.map((theme: Theme) => `- ${theme.title}: ${theme.description}`)
-    .join("\n") || "None"
-}
+${state.previousThemes?.map((theme) => `- ${theme.title}: ${theme.description}`).join("\n") || "None"}
 
-Execute your iterative research and generate 3 concept seeds.`;
+**YOUR TASK**:
+1. **Plan your research strategy** - decide on your initial broad queries
+2. **Execute searches iteratively** - start broad, then drill deeper based on findings
+3. **Build each query on previous results** - follow the most promising threads
+4. **Continue until you have 8-12 searches** - don't stop at surface level
+5. **Synthesize findings into 3 concept seeds** - transform insights into actionable concepts
 
-    console.log(
-      "🤖 Calling Claude Sonnet 4 for iterative research planning..."
-    );
+Begin your iterative research now. Think through your strategy, then provide your planned queries and execute them one by one, building comprehensive understanding before generating concepts.`;
+
+    console.log("🤖 Calling LLM for iterative research planning...");
 
     // Call LLM to get the research plan and initial queries
     const planResponse = await llm.invoke([
@@ -221,39 +188,9 @@ Execute your iterative research and generate 3 concept seeds.`;
     let researchPlan;
     try {
       const content = planResponse.content as string;
-
-      // Clean the response - remove any thinking tags or tool calls
-      const cleanedContent = content
-        .replace(/<think>[\s\S]*?<\/think>/g, "") // Remove thinking tags
-        .replace(
-          /<search-vector-database>[\s\S]*?<\/search-vector-database>/g,
-          ""
-        ) // Remove tool calls
-        .trim();
-
-      // Extract JSON - look for complete JSON object
-      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
-
-      const jsonString = jsonMatch[0];
-
-      // Ensure the JSON is complete - if it ends abruptly, try to fix it
-      let fixedJsonString = jsonString;
-      if (!jsonString.trim().endsWith("}")) {
-        console.log("⚠️ JSON appears incomplete, attempting to fix...");
-        // Count braces to see if we need to close objects
-        const openBraces = (jsonString.match(/\{/g) || []).length;
-        const closeBraces = (jsonString.match(/\}/g) || []).length;
-        const missingBraces = openBraces - closeBraces;
-
-        if (missingBraces > 0) {
-          fixedJsonString = jsonString + "}".repeat(missingBraces);
-        }
-      }
-
-      researchPlan = JSON.parse(fixedJsonString);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonString = jsonMatch ? jsonMatch[0] : content;
+      researchPlan = JSON.parse(jsonString);
     } catch (parseError) {
       console.error("❌ Failed to parse research plan:", parseError);
       console.error("Raw response:", planResponse.content);
@@ -262,8 +199,8 @@ Execute your iterative research and generate 3 concept seeds.`;
 
     // Execute the planned searches iteratively
     const searchQueries = researchPlan.searchQueries || [];
-    const allSearchResults: SearchResult[] = [];
-    const searchExecutionLog: Array<{
+    let allSearchResults: any[] = [];
+    let searchExecutionLog: Array<{
       query: string;
       resultCount: number;
       analysis: string;
@@ -317,22 +254,18 @@ Execute your iterative research and generate 3 concept seeds.`;
 
     // Deduplicate results by ID and take top results by score
     const uniqueResults = Array.from(
-      new Map(
-        allSearchResults.map((result: SearchResult) => [result.id, result])
-      ).values()
+      new Map(allSearchResults.map((result) => [result.id, result])).values()
     )
-      .sort(
-        (a: SearchResult, b: SearchResult) => (b.score || 0) - (a.score || 0)
-      )
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 30); // Top 30 unique results for comprehensive analysis
 
-    // Step 2: Generate 3 concept seeds based on comprehensive research
-    const conceptSynthesisPrompt = `Based on your completed iterative research, now synthesize your findings into exactly 3 concept seeds.
+    // Step 2: Generate 6 concept seeds based on comprehensive research
+    const conceptSynthesisPrompt = `Based on your completed iterative research, now synthesize your findings into exactly 6 concept seeds.
 
 **RESEARCH RESULTS** (Top ${uniqueResults.length} findings):
 ${uniqueResults
   .map(
-    (result: SearchResult, i) => `
+    (result, i) => `
 Result ${i + 1} (Score: ${result.score?.toFixed(4) || "N/A"}):
 ${result.text}
 Category: ${result.category || "General"}
@@ -352,13 +285,11 @@ Analysis: ${log.analysis}
   .join("\n")}
 
 **SYNTHESIS REQUIREMENTS**:
-- Generate exactly 3 concept seeds
+- Generate exactly 6 concept seeds (not 3)
 - Each must leverage different aspects of your research findings
 - Build on the iterative insights you've uncovered
-- Avoid any similarity to previous themes: ${JSON.stringify(
-      state.previousThemes?.map((t: Theme) => t.title) || []
-    )}
-- Focus on competitive advantages discovered
+- Avoid any similarity to previous themes: ${JSON.stringify(state.previousThemes?.map((t) => t.title) || [])}
+- Focus on proprietary competitive advantages discovered
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -374,14 +305,14 @@ Return ONLY valid JSON with this exact structure:
   "searchSummary": "Summary of your iterative research methodology and key discoveries"
 }`;
 
-    console.log("🤖 Synthesizing research into 3 concept seeds...");
+    console.log("🤖 Synthesizing research into 6 concept seeds...");
 
     // Call LLM to synthesize findings into concept seeds
     const conceptResponse = await llm.invoke([
       {
         role: "system",
         content:
-          "You are synthesizing comprehensive research findings into 3 distinct concept seeds. Base each concept on specific discoveries from the iterative research.",
+          "You are synthesizing comprehensive research findings into 6 distinct concept seeds. Base each concept on specific discoveries from the iterative research.",
       },
       { role: "user", content: conceptSynthesisPrompt },
     ]);
@@ -392,39 +323,9 @@ Return ONLY valid JSON with this exact structure:
     let conceptData;
     try {
       const content = conceptResponse.content as string;
-
-      // Clean the response - remove any thinking tags or tool calls
-      const cleanedContent = content
-        .replace(/<think>[\s\S]*?<\/think>/g, "") // Remove thinking tags
-        .replace(
-          /<search-vector-database>[\s\S]*?<\/search-vector-database>/g,
-          ""
-        ) // Remove tool calls
-        .trim();
-
-      // Extract JSON - look for complete JSON object
-      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in concept response");
-      }
-
-      const jsonString = jsonMatch[0];
-
-      // Ensure the JSON is complete - if it ends abruptly, try to fix it
-      let fixedJsonString = jsonString;
-      if (!jsonString.trim().endsWith("}")) {
-        console.log("⚠️ Concept JSON appears incomplete, attempting to fix...");
-        // Count braces to see if we need to close objects
-        const openBraces = (jsonString.match(/\{/g) || []).length;
-        const closeBraces = (jsonString.match(/\}/g) || []).length;
-        const missingBraces = openBraces - closeBraces;
-
-        if (missingBraces > 0) {
-          fixedJsonString = jsonString + "}".repeat(missingBraces);
-        }
-      }
-
-      conceptData = JSON.parse(fixedJsonString);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonString = jsonMatch ? jsonMatch[0] : content;
+      conceptData = JSON.parse(jsonString);
     } catch (parseError) {
       console.error("❌ Failed to parse concept response:", parseError);
       console.error("Raw response:", conceptResponse.content);
@@ -433,12 +334,10 @@ Return ONLY valid JSON with this exact structure:
 
     const validatedOutput = ThemeGenerationOutputSchema.parse(conceptData);
 
-    console.log("✅ Agent 2: Generated 3 concept seeds successfully");
+    console.log("✅ Agent 2: Generated 6 concept seeds successfully");
     console.log(
       `📋 Concepts: ${validatedOutput.themes.map((t) => t.title).join(", ")}`
     );
-
-    console.log("🎯 Final step: Claude Sonnet 4 generating 3 concept seeds...");
 
     return {
       generatedThemes: validatedOutput.themes,
@@ -450,11 +349,19 @@ Return ONLY valid JSON with this exact structure:
   } catch (error) {
     console.error("❌ Agent 2 Error:", error);
     throw new Error(
-      `Theme generation failed: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
+      `Theme generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
     );
   }
+}
+
+// Helper function no longer needed with agent-driven search
+// but keeping for backwards compatibility if other parts of system use it
+function generateNewSearchQueries(
+  previousSearches: string[],
+  regenerationCount: number
+): string[] {
+  // This is now handled by the agent itself
+  return [];
 }
 
 export type ThemeGenerationOutput = z.infer<typeof ThemeGenerationOutputSchema>;

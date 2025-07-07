@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       socialPostsCount: body.socialPostsCount || 8,
       ctaType: body.ctaType || "contact_us",
       ctaUrl: body.ctaUrl,
+      selectedWhitepaperId: body.selectedWhitepaperId,
       currentStep: "brief_creation",
       isComplete: false,
       needsHumanInput: false,
