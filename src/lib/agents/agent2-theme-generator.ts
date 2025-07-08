@@ -7,6 +7,9 @@ import { z } from "zod";
 import { pineconeSearchTool } from "../tools/pinecone-search";
 import { BasicWorkflowState, Theme } from "../schemas/types";
 import { getWhitepaperConfigById } from "../tools/pinecone-search";
+import { MessageContent, MessageContentText } from "@langchain/core/messages";
+import { themesParser, getFormatInstructions } from "../tools/output-parsers";
+import { StructuredOutputParser } from "@langchain/core/output_parsers";
 
 // Type for search results
 interface SearchResult {
@@ -33,6 +36,18 @@ const ThemeGenerationOutputSchema = z.object({
     .string()
     .describe("Summary of iterative research findings and methodology"),
 });
+
+// Schema for initial queries
+const InitialQueriesSchema = z.array(z.string()).min(2).max(3);
+const initialQueriesParser =
+  StructuredOutputParser.fromZodSchema(InitialQueriesSchema);
+
+// Schema for analysis response
+const AnalysisSchema = z.object({
+  analysis: z.string(),
+  nextQueries: z.array(z.string()).min(2).max(3),
+});
+const analysisParser = StructuredOutputParser.fromZodSchema(AnalysisSchema);
 
 export async function themeGeneratorAgent(
   state: BasicWorkflowState
@@ -94,12 +109,22 @@ export async function themeGeneratorAgent(
     const whitepaperContext =
       whitepaperConfig.namespace || "Company whitepaper content";
 
-    // Step 1: Agent-driven iterative research
-    console.log("🔍 Starting agent-driven iterative research...");
+    // Modified system prompt to emphasize iterative searching
+    const systemPrompt = `You are an iterative research agent that builds understanding progressively through sequential searches. Your goal is to:
 
-    const systemPrompt = `**SITUATION**: You are the critical intelligence-gathering and initial ideation stage in the Content Studio pipeline. You've received structured strategic analysis from the Brief Analysis Agent, and you're responsible for both uncovering unique insights AND suggesting initial concept seeds that showcase the company's competitive advantages.
+1. Start with 2-3 broad, exploratory queries
+2. Analyze those results carefully
+3. Form more specific queries based on interesting findings
+4. Continue this pattern of search → analyze → search until you've built a comprehensive understanding
 
-**PROBLEM**: You need to systematically explore the company's whitepaper through iterative searching - starting broad, then drilling down into the most promising findings with increasingly specific queries. A few surface-level searches won't uncover the deep insights needed. You must follow interesting threads and dig deeper when you find compelling information, building a comprehensive understanding before suggesting concept seeds.
+IMPORTANT:
+- Don't plan all searches upfront
+- Each new search should be informed by previous results
+- Follow interesting threads as you discover them
+- Build understanding progressively
+- Stop searching when you've exhausted valuable angles or reached 12 total searches
+
+Your final output should include 3 concept seeds based on your progressive research.
 
 **ASPIRATION**: Become the "treasure hunter and initial creative" who conducts thorough, iterative research to uncover the whitepaper's most valuable insights. Start with broad strategic queries based on the whitepaper context, analyze what's promising, then drill deeper with targeted follow-up queries. Build comprehensive understanding through 8-12 strategic searches before synthesizing findings into concept seeds.
 
@@ -129,59 +154,7 @@ export async function themeGeneratorAgent(
 - **Each search must build on previous findings**  
 - **Progress from broad → specific → detailed**
 - **Follow promising threads until exhausted**
-- **Document your reasoning for each query**
-
-**SEARCH QUERY GUIDELINES**:
-- Keep queries simple and natural (3-8 words)
-- Base queries on the whitepaper context provided
-- Use business language, not technical jargon
-- Focus on concepts that would actually be in a business whitepaper
-- NO references to specific internal documents, surveys, or proprietary databases
-
-**CRITICAL OUTPUT INSTRUCTIONS**:
-- DO NOT use any thinking tags like <think> or </think>
-- DO NOT use any tool calls like <search-vector-database>
-- DO NOT include any internal reasoning or thought processes in your response
-- Return ONLY clean, valid JSON without any additional text, tags, or formatting
-- Ensure all JSON objects are properly closed with matching braces
-- Do not truncate or cut off your response - complete all 3 concept themes
-
-**TIPS**:
-YOU MUST HAVE A BIAS FOR INCLUDING qualitative and/or quantitative data for the key insights!! 
-You will have large amount of data returned and you will have a lot to synthesise - don't forget to then output the concept ideas!
-Also make sure that each idea is numbered (as seen in the output schema)
-
-**OUTPUT FORMAT**: 
-Return your response as valid JSON with this exact structure (NO OTHER TEXT OR TAGS):
-{
-  "searchPlan": "Your overall research strategy and reasoning",
-  "searchQueries": ["query1", "query2", "etc"],
-  "searchAnalysis": "What you discovered and how searches built on each other",
-  "themes": [
-    {
-      "id": "concept-1",
-      "title": "Concept Title",
-      "description": "Brief description...",
-      "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
-      "detailedDescription": "Detailed description with specific research insights..."
-    },
-    {
-      "id": "concept-2",
-      "title": "Concept Title",
-      "description": "Brief description...",
-      "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
-      "detailedDescription": "Detailed description with specific research insights..."
-    },
-    {
-      "id": "concept-3",
-      "title": "Concept Title",
-      "description": "Brief description...",
-      "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
-      "detailedDescription": "Detailed description with specific research insights..."
-    }
-  ],
-  "searchSummary": "Summary of iterative research findings and methodology"
-}`;
+- **Document your reasoning for each query**`;
 
     const userPrompt = `**WHITEPAPER CONTEXT**: ${whitepaperContext}
 
@@ -203,105 +176,132 @@ ${
     .join("\n") || "None"
 }
 
-Execute your iterative research and generate 3 concept seeds.`;
+Based on this context, generate 2-3 initial broad queries to begin our research.
+Return only a JSON array of queries, for example: ["query1", "query2", "query3"]`;
 
-    console.log(
-      "🤖 Calling Claude Sonnet 4 for iterative research planning..."
-    );
+    // Get initial queries with structured parsing
+    const initialQueriesPrompt = `${userPrompt}\n\n${initialQueriesParser.getFormatInstructions()}`;
 
-    // Call LLM to get the research plan and initial queries
-    const planResponse = await llm.invoke([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
+    const initialQueriesResponse = await llm.invoke([
+      {
+        role: "system",
+        content:
+          "Generate 2-3 initial broad search queries. Follow the format instructions exactly.",
+      },
+      { role: "user", content: initialQueriesPrompt },
     ]);
 
-    console.log("📝 Research plan received, parsing...");
-
-    // Parse the research plan
-    let researchPlan;
+    let currentQueries: string[];
     try {
-      const content = planResponse.content as string;
+      // Handle MessageContent type properly and use structured parsing
+      const content = initialQueriesResponse.content;
+      const textContent = Array.isArray(content)
+        ? (content[0] as MessageContentText).text
+        : (content as string);
 
-      // Clean the response - remove any thinking tags or tool calls
-      const cleanedContent = content
-        .replace(/<think>[\s\S]*?<\/think>/g, "") // Remove thinking tags
-        .replace(
-          /<search-vector-database>[\s\S]*?<\/search-vector-database>/g,
-          ""
-        ) // Remove tool calls
-        .trim();
-
-      // Extract JSON - look for complete JSON object
-      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
-
-      const jsonString = jsonMatch[0];
-
-      // Ensure the JSON is complete - if it ends abruptly, try to fix it
-      let fixedJsonString = jsonString;
-      if (!jsonString.trim().endsWith("}")) {
-        console.log("⚠️ JSON appears incomplete, attempting to fix...");
-        // Count braces to see if we need to close objects
-        const openBraces = (jsonString.match(/\{/g) || []).length;
-        const closeBraces = (jsonString.match(/\}/g) || []).length;
-        const missingBraces = openBraces - closeBraces;
-
-        if (missingBraces > 0) {
-          fixedJsonString = jsonString + "}".repeat(missingBraces);
-        }
-      }
-
-      researchPlan = JSON.parse(fixedJsonString);
-    } catch (parseError) {
-      console.error("❌ Failed to parse research plan:", parseError);
-      console.error("Raw response:", planResponse.content);
-      throw new Error("Failed to parse research plan");
+      currentQueries = await initialQueriesParser.parse(textContent);
+      console.log("✅ Initial queries parsed successfully:", currentQueries);
+    } catch (error) {
+      console.error("❌ Failed to parse initial queries:", error);
+      throw new Error("Failed to generate valid initial queries");
     }
 
-    // Execute the planned searches iteratively
-    const searchQueries = researchPlan.searchQueries || [];
+    // Execute iterative searches
     const allSearchResults: SearchResult[] = [];
     const searchExecutionLog: Array<{
       query: string;
       resultCount: number;
       analysis: string;
+      nextQueries: string[];
     }> = [];
 
-    console.log(`🎯 Executing ${searchQueries.length} planned searches...`);
+    console.log("🔄 Starting iterative search process...");
 
-    for (let i = 0; i < searchQueries.length && i < 12; i++) {
-      const query = searchQueries[i];
-      try {
-        console.log(`🔍 Search ${i + 1}/${searchQueries.length}: "${query}"`);
+    let totalSearches = 0;
+    const MAX_SEARCHES = 12;
 
-        const searchResult = await pineconeSearchTool.invoke({
-          query,
-          whitepaperNamespace: whitepaperConfig.namespace,
-          indexName: whitepaperConfig.indexName,
-          topK: 10,
-          topN: 5,
-        });
+    while (totalSearches < MAX_SEARCHES && currentQueries.length > 0) {
+      for (const query of currentQueries) {
+        if (totalSearches >= MAX_SEARCHES) break;
 
-        const parsedResults = JSON.parse(searchResult);
-        allSearchResults.push(...parsedResults.results);
+        console.log(
+          `🔍 Search ${totalSearches + 1}/${MAX_SEARCHES}: "${query}"`
+        );
 
-        searchExecutionLog.push({
-          query,
-          resultCount: parsedResults.results.length,
-          analysis: `Found ${parsedResults.results.length} relevant results`,
-        });
+        try {
+          const searchResult = await pineconeSearchTool.invoke({
+            query,
+            whitepaperNamespace: whitepaperConfig.namespace,
+            indexName: whitepaperConfig.indexName,
+            topK: 10,
+            topN: 5,
+          });
 
-        // Brief pause between searches to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      } catch (error) {
-        console.error(`❌ Search failed for "${query}":`, error);
-        searchExecutionLog.push({
-          query,
-          resultCount: 0,
-          analysis: `Search failed: ${error}`,
-        });
+          const parsedResults = JSON.parse(searchResult);
+          allSearchResults.push(...parsedResults.results);
+
+          // Analyze results and plan next queries
+          const analysisPrompt = `Analyze these search results and suggest 2-3 follow-up queries to dig deeper:
+
+Search Query: "${query}"
+Results:
+${JSON.stringify(parsedResults.results, null, 2)}
+
+Previous Searches: ${searchExecutionLog.map((log) => log.query).join(", ")}
+
+${analysisParser.getFormatInstructions()}`;
+
+          const analysisResponse = await llm.invoke([
+            {
+              role: "system",
+              content:
+                "Analyze search results and plan next queries. Follow the format instructions exactly.",
+            },
+            { role: "user", content: analysisPrompt },
+          ]);
+
+          let analysis;
+          try {
+            // Handle MessageContent type properly and use structured parsing
+            const content = analysisResponse.content;
+            const textContent = Array.isArray(content)
+              ? (content[0] as MessageContentText).text
+              : (content as string);
+
+            analysis = await analysisParser.parse(textContent);
+            console.log(`✅ Analysis parsed successfully for query "${query}"`);
+          } catch (error) {
+            console.error("Failed to parse analysis response:", error);
+            analysis = {
+              analysis: "Failed to analyze results",
+              nextQueries: [],
+            };
+          }
+
+          searchExecutionLog.push({
+            query,
+            resultCount: parsedResults.results.length,
+            analysis: analysis.analysis,
+            nextQueries: analysis.nextQueries,
+          });
+
+          // Update queries for next iteration
+          currentQueries = analysis.nextQueries;
+
+          totalSearches++;
+
+          // Brief pause between searches
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error(`❌ Search failed for "${query}":`, error);
+          searchExecutionLog.push({
+            query,
+            resultCount: 0,
+            analysis: `Search failed: ${error}`,
+            nextQueries: [],
+          });
+          totalSearches++;
+        }
       }
     }
 
@@ -326,7 +326,7 @@ Execute your iterative research and generate 3 concept seeds.`;
       )
       .slice(0, 30); // Top 30 unique results for comprehensive analysis
 
-    // Step 2: Generate 3 concept seeds based on comprehensive research
+    // Generate 3 concept seeds based on comprehensive research
     const conceptSynthesisPrompt = `Based on your completed iterative research, now synthesize your findings into exactly 3 concept seeds.
 
 **RESEARCH RESULTS** (Top ${uniqueResults.length} findings):
@@ -360,19 +360,7 @@ Analysis: ${log.analysis}
     )}
 - Focus on competitive advantages discovered
 
-Return ONLY valid JSON with this exact structure:
-{
-  "themes": [
-    {
-      "id": "concept-1",
-      "title": "Concept Title",
-      "description": "Brief description...",
-      "whyItWorks": ["Reason 1", "Reason 2", "Reason 3"],
-      "detailedDescription": "Detailed description with specific research insights..."
-    }
-  ],
-  "searchSummary": "Summary of your iterative research methodology and key discoveries"
-}`;
+${themesParser.getFormatInstructions()}`;
 
     console.log("🤖 Synthesizing research into 3 concept seeds...");
 
@@ -381,68 +369,47 @@ Return ONLY valid JSON with this exact structure:
       {
         role: "system",
         content:
-          "You are synthesizing comprehensive research findings into 3 distinct concept seeds. Base each concept on specific discoveries from the iterative research.",
+          "You are synthesizing comprehensive research findings into 3 distinct concept seeds. Follow the format instructions exactly.",
       },
       { role: "user", content: conceptSynthesisPrompt },
     ]);
 
     console.log("📝 Concept synthesis received, parsing...");
 
-    // Parse and validate the final response
+    // Parse and validate the final response using structured parsing
     let conceptData;
     try {
       const content = conceptResponse.content as string;
+      conceptData = await themesParser.parse(content);
+      console.log("✅ Theme generation output parsed successfully");
 
-      // Clean the response - remove any thinking tags or tool calls
-      const cleanedContent = content
-        .replace(/<think>[\s\S]*?<\/think>/g, "") // Remove thinking tags
-        .replace(
-          /<search-vector-database>[\s\S]*?<\/search-vector-database>/g,
-          ""
-        ) // Remove tool calls
-        .trim();
-
-      // Extract JSON - look for complete JSON object
-      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in concept response");
-      }
-
-      const jsonString = jsonMatch[0];
-
-      // Ensure the JSON is complete - if it ends abruptly, try to fix it
-      let fixedJsonString = jsonString;
-      if (!jsonString.trim().endsWith("}")) {
-        console.log("⚠️ Concept JSON appears incomplete, attempting to fix...");
-        // Count braces to see if we need to close objects
-        const openBraces = (jsonString.match(/\{/g) || []).length;
-        const closeBraces = (jsonString.match(/\}/g) || []).length;
-        const missingBraces = openBraces - closeBraces;
-
-        if (missingBraces > 0) {
-          fixedJsonString = jsonString + "}".repeat(missingBraces);
-        }
-      }
-
-      conceptData = JSON.parse(fixedJsonString);
+      // Add detailed theme logging
+      console.log("\n📊 GENERATED THEMES DETAILS:");
+      console.log(JSON.stringify(conceptData, null, 2));
+      console.log("\n🎯 Individual Theme Summaries:");
+      conceptData.themes.forEach((theme, index) => {
+        console.log(`\nTheme ${index + 1}: ${theme.title}`);
+        console.log("Description:", theme.description);
+        console.log("Why It Works:");
+        theme.whyItWorks.forEach((reason, i) =>
+          console.log(`  ${i + 1}. ${reason}`)
+        );
+        console.log("Detailed Description:", theme.detailedDescription);
+        console.log("---");
+      });
     } catch (parseError) {
       console.error("❌ Failed to parse concept response:", parseError);
-      console.error("Raw response:", conceptResponse.content);
-      throw new Error("Failed to parse concept generation response");
+      throw new Error("Failed to generate valid concept seeds");
     }
-
-    const validatedOutput = ThemeGenerationOutputSchema.parse(conceptData);
 
     console.log("✅ Agent 2: Generated 3 concept seeds successfully");
     console.log(
-      `📋 Concepts: ${validatedOutput.themes.map((t) => t.title).join(", ")}`
+      `📋 Concepts: ${conceptData.themes.map((t) => t.title).join(", ")}`
     );
 
-    console.log("🎯 Final step: Claude Sonnet 4 generating 3 concept seeds...");
-
     return {
-      generatedThemes: validatedOutput.themes,
-      searchHistory: [...(state.searchHistory || []), ...searchQueries],
+      generatedThemes: conceptData.themes,
+      searchHistory: searchExecutionLog.map((log) => log.query),
       regenerationCount: (state.regenerationCount || 0) + 1,
       currentStep: "themes_generated",
       needsHumanInput: true, // Pause for user to select theme
