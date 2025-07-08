@@ -22,10 +22,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
-        <DarkModeToggle />
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} font-sans antialiased min-h-screen`}
+        suppressHydrationWarning
+      >
+        <div className="relative">
+          {children}
+          <DarkModeToggle />
+        </div>
       </body>
     </html>
   );
