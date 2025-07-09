@@ -1,4 +1,4 @@
-// Simplified Workflow Orchestrator - Updated for Frontend with Agent 2
+// Simplified Workflow Orchestrator - Updated for Frontend with Agent 2 & 3
 import { StateGraph, START, END } from "@langchain/langgraph";
 import {
   BasicStateAnnotation,
@@ -7,6 +7,7 @@ import {
 } from "./schemas/types";
 import { briefCreatorAgent } from "./agents/agent1-brief-creator";
 import { themeGeneratorAgent } from "./agents/agent2-theme-generator";
+import { deepResearchAgent } from "./agents/agent3-researcher";
 
 // Conditional function to determine next step after Agent 1
 function shouldContinueAfterBrief(state: BasicWorkflowState): string {
@@ -26,32 +27,55 @@ function shouldContinueAfterThemes(state: BasicWorkflowState): string {
   return END;
 }
 
+// Conditional function to determine next step after theme selection
+function shouldContinueAfterThemeSelection(state: BasicWorkflowState): string {
+  // If we have a selected theme, move to deep research
+  if (state.selectedTheme && state.currentStep === "theme_selected") {
+    return "deep_research";
+  }
+  return END;
+}
+
+// Conditional function to determine next step after Agent 3
+function shouldContinueAfterResearch(state: BasicWorkflowState): string {
+  // After deep research, we can end or continue to content generation
+  if (state.researchDossier && state.currentStep === "research_complete") {
+    return END; // For now, end after research is complete
+  }
+  return END;
+}
+
 // Placeholder node for human theme selection (will be handled by frontend)
 async function awaitThemeSelection(
   state: BasicWorkflowState
 ): Promise<Partial<BasicWorkflowState>> {
   console.log("⏸️ Workflow paused - waiting for user to select theme");
 
-    return {
+  return {
     currentStep: "awaiting_theme_selection",
     needsHumanInput: true,
     isComplete: false,
   };
 }
 
-// Create the updated workflow graph
+// Create the updated workflow graph with Agent 3
 export function createContentWorkflow() {
   const workflow = new StateGraph(BasicStateAnnotation)
     // Add all nodes
     .addNode("brief_creator", briefCreatorAgent)
     .addNode("generate_themes", themeGeneratorAgent)
     .addNode("await_theme_selection", awaitThemeSelection)
+    .addNode("deep_research", deepResearchAgent)
 
     // Define the flow
     .addEdge(START, "brief_creator")
     .addConditionalEdges("brief_creator", shouldContinueAfterBrief)
     .addConditionalEdges("generate_themes", shouldContinueAfterThemes)
-    .addEdge("await_theme_selection", END);
+    .addConditionalEdges(
+      "await_theme_selection",
+      shouldContinueAfterThemeSelection
+    )
+    .addConditionalEdges("deep_research", shouldContinueAfterResearch);
 
   return workflow.compile();
 }
@@ -59,7 +83,7 @@ export function createContentWorkflow() {
 // Export the compiled workflow
 export const contentWorkflow = createContentWorkflow();
 
-// Helper function to handle theme selection and continue workflow
+// Helper function to handle theme selection and continue workflow with Agent 3
 export async function continueWithSelectedTheme(
   currentState: BasicWorkflowState,
   selectedThemeId: string
@@ -86,11 +110,21 @@ export async function continueWithSelectedTheme(
     ],
     currentStep: "theme_selected",
     needsHumanInput: false,
-    isComplete: true, // For now, mark as complete after theme selection
+    isComplete: false, // Not complete yet - need to run Agent 3
   };
 
-  console.log(`✅ Theme selected: "${selectedTheme.title}"`);
-  return updatedState;
+  console.log(
+    `✅ Theme selected: "${selectedTheme.title}", running deep research...`
+  );
+
+  // Run Agent 3 automatically after theme selection
+  const researchResult = await deepResearchAgent(updatedState);
+
+  return {
+    ...updatedState,
+    ...researchResult,
+    isComplete: true, // Complete after research
+  };
 }
 
 // Helper function to regenerate themes
@@ -120,7 +154,7 @@ export async function regenerateThemes(
   };
 }
 
-// Legacy execution function for backward compatibility
+// Legacy execution function for backward compatibility - now includes Agent 3
 export async function executeContentGeneration(
   input: BasicWorkflowState
 ): Promise<FinalContentOutput> {
@@ -145,25 +179,13 @@ export async function executeContentGeneration(
       console.error("Error parsing marketing brief:", error);
       // Fallback to a basic structure
       marketingBrief = {
-        executiveSummary: "Generated marketing brief",
-        targetPersona: {
-          demographic: "Target demographic",
-          psychographic: "Target psychographic",
-          painPoints: ["Pain point 1"],
-          motivations: ["Motivation 1"],
-        },
-        campaignObjectives: ["Objective 1"],
-        keyMessages: ["Key message 1"],
-        contentStrategy: {
-          articles: input.articlesCount,
-          linkedinPosts: input.linkedinPostsCount,
-          socialPosts: input.socialPostsCount,
-        },
-        callToAction: {
-          type: input.ctaType,
-          message: "Contact us today",
-          url: input.ctaUrl,
-        },
+        business_overview: "Generated marketing brief",
+        target_audience_analysis: "Target audience analysis",
+        marketing_objectives: "Marketing objectives",
+        key_messages: ["Key message 1"],
+        tone_and_voice: "Professional and engaging",
+        competitive_positioning: "Market positioning",
+        success_metrics: ["Metric 1"],
       };
     }
 
@@ -216,31 +238,34 @@ export async function executeContentGeneration(
           }
         : undefined;
 
-    // Return final structured output
-  const finalOutput: FinalContentOutput = {
+    // Return final structured output including research dossier
+    const finalOutput: FinalContentOutput = {
       marketing_brief: marketingBrief,
       selected_theme: result.selectedTheme,
+      generated_themes: result.generatedThemes,
+      research_dossier: result.researchDossier,
       article: articleOutput,
       linkedin_posts: linkedInOutput,
       social_posts: socialOutput,
-      generated_themes: result.generatedThemes,
       workflow_state: {
         currentStep: result.currentStep,
         needsHumanInput: result.needsHumanInput,
         isComplete: result.isComplete,
       },
-    generation_metadata: {
-      created_at: new Date().toISOString(),
+      generation_metadata: {
+        created_at: new Date().toISOString(),
         processing_time_ms: Date.now() - startTime,
-        agents_used: result.generatedThemes
-          ? ["brief-creator", "theme-generator"]
-          : ["brief-creator"],
+        agents_used: result.researchDossier
+          ? ["brief-creator", "theme-generator", "deep-researcher"]
+          : result.generatedThemes
+            ? ["brief-creator", "theme-generator"]
+            : ["brief-creator"],
         whitepaper_chunks_analyzed: result.searchHistory?.length || 0,
       },
     };
 
     console.log("Content generation completed successfully");
-  return finalOutput;
+    return finalOutput;
   } catch (error) {
     console.error("Content generation error:", error);
     throw new Error(

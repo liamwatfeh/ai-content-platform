@@ -1,0 +1,29 @@
+// Simplified Research Dossier Schema for Agent 3 output
+export const ResearchDossierSchema = z.object({
+  selectedTheme: ThemeSchema,
+  
+  // Core whitepaper evidence - streamlined
+  whitepaperEvidence: z.object({
+    keyFindings: z.array(
+      z.object({
+        claim: z.string().describe("The key claim or finding"),
+        evidence: z.string().describe("Supporting evidence from whitepaper"),
+        confidence: z.enum(["high", "medium", "low"]).describe("Confidence in the evidence"),
+      })
+    ).min(6).max(8).describe("Key evidence-backed findings from the whitepaper"),
+  }),
+  
+  // 3 suggested content concepts for drafting agents to evaluate
+  suggestedConcepts: z.array(
+    z.object({
+      title: z.string(),
+      angle: z.string().describe("The unique perspective or angle"),
+      whyItWorks: z.string().describe("Why this concept will resonate with the audience"),
+      keyEvidence: z.array(z.string()).length(3).describe("Top 3 pieces of whitepaper evidence supporting this concept"),
+      contentDirection: z.string().describe("Brief guidance for how drafting agents should approach this concept"),
+    })
+  ).length(3).describe("3 content concepts for drafting agents to evaluate and choose from"),
+  
+  // Simple research summary
+  researchSummary: z.string().describe("Summary of research findings and how they support the concepts"),
+});

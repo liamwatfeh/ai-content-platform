@@ -353,6 +353,9 @@ export default function GenerateContentPage() {
             generatedThemes: themes,
             currentStep: "awaiting_theme_selection",
             needsHumanInput: true,
+            marketingBrief: currentWorkflowState.marketing_brief
+              ? JSON.stringify(currentWorkflowState.marketing_brief)
+              : undefined,
           },
         }),
       });

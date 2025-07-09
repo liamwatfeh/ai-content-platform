@@ -1,0 +1,27 @@
+    // Generate final research dossier with 3 suggested concepts - SIMPLIFIED VERSION
+    const conceptSynthesisPrompt = `Create a streamlined research dossier with 3 suggested content concepts from whitepaper analysis.
+
+**SELECTED THEME**: ${JSON.stringify(selectedTheme, null, 2)}
+
+**MARKETING CONTEXT**:
+Business: ${state.businessContext}
+Audience: ${state.targetAudience}
+Goals: ${state.marketingGoals}
+
+**RESEARCH RESULTS** (${uniqueResults.length} findings):
+${uniqueResults
+  .slice(0, 20) // Limit to top 20 to reduce prompt size
+  .map(
+    (result: SearchResult, i) => `${i + 1}. ${result.text.substring(0, 150)}...`
+  )
+  .join("\n")}
+
+**REQUIREMENTS**:
+1. Extract 6-8 KEY FINDINGS with confidence levels (high/medium/low)
+2. Create exactly 3 SUGGESTED CONCEPTS for drafting agents to choose from
+3. Each concept needs: title, angle, why it works, 3 key evidence points, content direction
+4. Include brief research summary
+
+**FORMAT**: Follow the JSON schema exactly. Be concise but specific with evidence.
+
+${researchDossierParser.getFormatInstructions()}`;

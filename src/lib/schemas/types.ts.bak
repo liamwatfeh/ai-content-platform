@@ -11,35 +11,110 @@ const ThemeSchema = z.object({
   detailedDescription: z.string().describe("Hidden field for next agent"),
 });
 
-// Simplified Research Dossier Schema for Agent 3 output
+// Research Dossier Schema for Agent 3 output
 export const ResearchDossierSchema = z.object({
   selectedTheme: ThemeSchema,
   
-  // Core whitepaper evidence - streamlined
+  // Core whitepaper evidence - the foundation of all content
   whitepaperEvidence: z.object({
     keyFindings: z.array(
       z.object({
         claim: z.string().describe("The key claim or finding"),
         evidence: z.string().describe("Supporting evidence from whitepaper"),
+        sourceContext: z.string().describe("Context from the whitepaper section"),
+        evidenceType: z.enum(["quantitative", "qualitative", "case_study", "methodology"]),
         confidence: z.enum(["high", "medium", "low"]).describe("Confidence in the evidence"),
+        contentRelevance: z.string().describe("How this supports content creation"),
       })
-    ).min(6).max(8).describe("Key evidence-backed findings from the whitepaper"),
+    ).min(8).max(15).describe("Key evidence-backed findings from the whitepaper"),
+    
+    quantitativeData: z.array(
+      z.object({
+        metric: z.string().describe("The specific metric or measurement"),
+        value: z.string().describe("The numerical value or statistic"),
+        context: z.string().describe("Context and significance of this data"),
+        sourceLocation: z.string().describe("Where in whitepaper this was found"),
+        usageNotes: z.string().describe("How this data can be used in content"),
+      })
+    ).describe("Quantitative data points from whitepaper"),
+    
+    qualitativeInsights: z.array(
+      z.object({
+        insight: z.string().describe("The qualitative insight or observation"),
+        supportingQuote: z.string().describe("Relevant quote or paraphrase from whitepaper"),
+        expertiseLevel: z.enum(["research_based", "industry_analysis", "expert_opinion"]),
+        contentApplication: z.string().describe("How to apply this in content"),
+      })
+    ).describe("Qualitative insights and expert observations"),
+    
+    caseStudies: z.array(
+      z.object({
+        title: z.string().describe("Case study or example title"),
+        summary: z.string().describe("Summary of the case study"),
+        keyOutcomes: z.array(z.string()).describe("Key results or outcomes"),
+        applicability: z.string().describe("How this applies to target audience"),
+      })
+    ).describe("Case studies and real-world examples from whitepaper"),
   }),
   
-  // 3 suggested content concepts for drafting agents to evaluate
-  suggestedConcepts: z.array(
+  // Research process and methodology
+  deepResearchFindings: z.array(
     z.object({
+      category: z.string(),
+      whitepaperInsights: z.array(z.string()).describe("Insights specifically from whitepaper"),
+      supportingEvidence: z.array(z.string()).describe("Direct evidence from whitepaper content"),
+      researchGaps: z.array(z.string()).describe("Areas needing deeper investigation"),
+    })
+  ),
+  
+  // Enhanced content concepts with strong whitepaper backing
+  contentConcepts: z.array(
+    z.object({
+      id: z.string(),
       title: z.string(),
       angle: z.string().describe("The unique perspective or angle"),
-      whyItWorks: z.string().describe("Why this concept will resonate with the audience"),
-      keyEvidence: z.array(z.string()).length(3).describe("Top 3 pieces of whitepaper evidence supporting this concept"),
-      contentDirection: z.string().describe("Brief guidance for how drafting agents should approach this concept"),
+      strategicPositioning: z.string().describe("How this positions the company"),
+      
+      // Enhanced whitepaper integration
+      whitepaperFoundation: z.object({
+        primaryEvidence: z.array(z.string()).describe("Key whitepaper evidence supporting this concept"),
+        supportingData: z.array(z.string()).describe("Quantitative data from whitepaper"),
+        expertCitations: z.array(z.string()).describe("Expert insights or quotes to reference"),
+        caseStudyReferences: z.array(z.string()).describe("Relevant case studies from whitepaper"),
+      }),
+      
+      keyInsights: z.array(z.string()).length(3),
+      targetPersonaRelevance: z.string().describe("Why this resonates with target audience"),
+      competitiveAdvantage: z.string().describe("What makes this concept unique based on whitepaper"),
+      
+      contentStructure: z.object({
+        hook: z.string(),
+        mainNarrative: z.string().describe("Core story backed by whitepaper findings"),
+        supportingPoints: z.array(z.string()).describe("Arguments supported by whitepaper evidence"),
+        callToAction: z.string(),
+        evidenceIntegration: z.string().describe("How to weave whitepaper evidence throughout content"),
+      }),
+      
+      // Ready-to-use content elements for future agents
+      contentAssets: z.object({
+        readyToCiteClaims: z.array(z.string()).describe("Claims ready for direct use in content"),
+        statisticsToHighlight: z.array(z.string()).describe("Key stats from whitepaper to feature"),
+        quotableInsights: z.array(z.string()).describe("Insights formatted for quotes/callouts"),
+        deepDiveOpportunities: z.array(z.string()).describe("Areas for Agents 4&5 to explore further"),
+      }),
     })
-  ).length(3).describe("3 content concepts for drafting agents to evaluate and choose from"),
+  ).length(6),
   
-  // Simple research summary
-  researchSummary: z.string().describe("Summary of research findings and how they support the concepts"),
+  // Enhanced research summary with whitepaper focus
+  researchSummary: z.string().describe("Summary of deep research methodology and whitepaper findings"),
+  whitepaperUtilization: z.object({
+    sectionsAnalyzed: z.array(z.string()).describe("Whitepaper sections that were deeply analyzed"),
+    evidenceConfidence: z.enum(["high", "medium", "low"]).describe("Overall confidence in whitepaper evidence"),
+    contentReadiness: z.string().describe("Assessment of how ready the whitepaper evidence is for content creation"),
+    recommendedFocus: z.array(z.string()).describe("Recommended focus areas for content based on strongest whitepaper evidence"),
+  }),
 });
+
 // Updated workflow state with Agent 3 fields
 export const BasicWorkflowState = z.object({
   // User inputs from the form

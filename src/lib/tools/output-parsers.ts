@@ -3,7 +3,7 @@ import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import {
   MarketingBriefSchema,
   ThemesOutputSchema,
-  ResearchOutputSchema,
+  ResearchDossierSchema,
   ArticleOutputSchema,
   LinkedInOutputSchema,
   SocialOutputSchema,
@@ -17,9 +17,9 @@ export const marketingBriefParser =
 export const themesParser =
   StructuredOutputParser.fromZodSchema(ThemesOutputSchema);
 
-// Research Output Parser (Agent 3)
-export const researchParser =
-  StructuredOutputParser.fromZodSchema(ResearchOutputSchema);
+// Research Dossier Parser (Agent 3)
+export const researchDossierParser =
+  StructuredOutputParser.fromZodSchema(ResearchDossierSchema);
 
 // Article Output Parser (Agent 4a)
 export const articleParser =
@@ -42,7 +42,7 @@ export function createParser<T>(schema: any) {
 export const PARSERS = {
   "marketing-brief": marketingBriefParser,
   themes: themesParser,
-  research: researchParser,
+  "research-dossier": researchDossierParser,
   article: articleParser,
   linkedin: linkedInParser,
   social: socialParser,
