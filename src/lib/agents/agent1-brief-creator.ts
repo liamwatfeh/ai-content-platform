@@ -78,9 +78,7 @@ Return your response as a JSON object matching this exact structure:
 }`;
 
     // User prompt with actual data
-    const userPrompt = `Create a marketing brief from this information:
-
-Business Context: ${state.businessContext}
+    const userPrompt = `Business Context: ${state.businessContext}
 Target Audience: ${state.targetAudience}
 Marketing Goals: ${state.marketingGoals}
 Content Requirements: ${state.articlesCount} articles, ${state.linkedinPostsCount} LinkedIn posts, ${state.socialPostsCount} social posts
@@ -149,9 +147,7 @@ Transform the raw user input into a comprehensive, structured marketing brief th
 
 Make the brief detailed, specific, and actionable. Focus on clarity and completeness.`,
 
-  userPromptTemplate: `Create a marketing brief from this information:
-
-Business Context: {business_context}
+  userPromptTemplate: `Business Context: {business_context}
 Target Audience: {target_audience}
 Marketing Goals: {marketing_goals}
 Content Requirements: {articles} articles, {linkedin_posts} LinkedIn posts, {social_posts} social posts

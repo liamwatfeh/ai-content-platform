@@ -105,6 +105,9 @@ export default function GenerateContentPage() {
     workflow_state?: WorkflowState;
   } | null>(null);
 
+  // Add state for final results
+  const [finalResults, setFinalResults] = useState<any>(null);
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBucketId, setSelectedBucketId] = useState<string>("");
@@ -326,12 +329,10 @@ export default function GenerateContentPage() {
     }
   };
 
-  // Handle theme selection
+  // Handle theme selection and run complete workflow
   const handleThemeSelection = async () => {
-    if (!selectedTheme || !currentWorkflowState || !selectedWhitepaper) {
-      setError(
-        "No theme selected, workflow state missing, or whitepaper not selected"
-      );
+    if (!selectedTheme || !selectedWhitepaper) {
+      setError("No theme selected or whitepaper not selected");
       return;
     }
 
@@ -339,47 +340,60 @@ export default function GenerateContentPage() {
     setError(null);
 
     try {
-      console.log("👤 Selecting theme:", selectedTheme.title);
+      console.log(
+        "🚀 Running complete workflow with selected theme:",
+        selectedTheme.title
+      );
 
-      const response = await fetch("/api/generate-themes", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "select_theme",
-          selectedThemeId: selectedTheme.id,
-          currentState: {
-            ...briefData,
-            selectedWhitepaperId: selectedWhitepaper.id,
-            generatedThemes: themes,
-            currentStep: "awaiting_theme_selection",
-            needsHumanInput: true,
-            marketingBrief: currentWorkflowState.marketing_brief
-              ? JSON.stringify(currentWorkflowState.marketing_brief)
-              : undefined,
-          },
-        }),
+      // Prepare the complete workflow payload
+      const payload = {
+        businessContext: briefData.businessContext,
+        targetAudience: briefData.targetAudience,
+        marketingGoals: briefData.marketingGoals,
+        articlesCount: briefData.articlesCount,
+        linkedinPostsCount: briefData.linkedinPostsCount,
+        socialPostsCount: briefData.socialPostsCount,
+        ctaType: briefData.ctaType,
+        ctaUrl: briefData.ctaUrl,
+        selectedWhitepaperId: selectedWhitepaper.id,
+        marketingBrief: currentWorkflowState?.marketing_brief
+          ? JSON.stringify(currentWorkflowState.marketing_brief)
+          : undefined,
+        generatedThemes: themes,
+        selectedTheme,
+        currentStep: "theme_selected",
+        needsHumanInput: false,
+        isComplete: false,
+      };
+
+      console.log("📤 Sending complete workflow payload:", payload);
+
+      // Call the complete workflow API
+      const response = await fetch("/api/generate-content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to select theme");
+        throw new Error(data.error || "Content generation failed");
       }
 
       if (data.success) {
-        setWorkflowState(data.workflow_state);
+        console.log("✅ Complete workflow successful:", data.data);
+        setFinalResults(data.data);
         setCurrentStep(4);
-        console.log(
-          "✅ Theme selected successfully:",
-          data.selected_theme?.title
-        );
       } else {
-        throw new Error("Invalid response format");
+        throw new Error(data.error || "Invalid response format");
       }
     } catch (error) {
-      console.error("❌ Theme selection error:", error);
+      console.error("❌ Content generation error:", error);
       setError(
-        error instanceof Error ? error.message : "Failed to select theme"
+        error instanceof Error ? error.message : "Failed to generate content"
       );
     } finally {
       setLoading(false);
@@ -404,7 +418,7 @@ export default function GenerateContentPage() {
     { number: 1, name: "Select Whitepaper", completed: currentStep > 1 },
     { number: 2, name: "Create Brief", completed: currentStep > 2 },
     { number: 3, name: "Choose Theme", completed: currentStep > 3 },
-    { number: 4, name: "Content Generated", completed: currentStep > 4 },
+    { number: 4, name: "Generate & Edit Content", completed: currentStep > 4 },
   ];
 
   return (
@@ -1053,50 +1067,233 @@ export default function GenerateContentPage() {
               </div>
             )}
 
-            {/* Step 4: Success */}
+            {/* Step 4: Final Results */}
             {currentStep === 4 && (
               <div>
                 <div className="text-center mb-8">
                   <CheckCircleIcon className="mx-auto h-16 w-16 text-green-600 mb-4" />
                   <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                    Theme Selected Successfully!
+                    Content Generated Successfully!
                   </h2>
                   <p className="text-lg text-gray-600">
-                    Your content theme has been selected and the workflow is
-                    complete.
+                    Your complete content workflow has finished. All content has
+                    been generated and edited.
                   </p>
+                  {finalResults?.generation_metadata && (
+                    <div className="mt-4 text-sm text-gray-500">
+                      <p>
+                        Generated by{" "}
+                        {finalResults.generation_metadata.agents_used.length}{" "}
+                        agents in{" "}
+                        {Math.round(
+                          finalResults.generation_metadata.processing_time_ms /
+                            1000
+                        )}
+                        s
+                      </p>
+                      {finalResults.generation_metadata.editing_completed && (
+                        <p className="text-green-600 font-medium">
+                          ✓ Content has been professionally edited
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {selectedTheme && (
-                  <div className="max-w-2xl mx-auto bg-white rounded-lg border border-gray-200 p-8 mb-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">
-                      Selected Theme
-                    </h3>
-                    <div className="bg-green-50 rounded-lg p-6">
-                      <h4 className="text-lg font-semibold text-green-900 mb-2">
-                        {selectedTheme.title}
-                      </h4>
-                      <p className="text-green-800 mb-4">
-                        {selectedTheme.description}
-                      </p>
-                      <div>
-                        <h5 className="text-sm font-medium text-green-900 mb-2">
-                          Why this works:
-                        </h5>
-                        <ul className="text-sm text-green-700 space-y-1">
-                          {selectedTheme.whyItWorks.map((point, index) => (
-                            <li key={index} className="flex items-start">
-                              <span className="mr-2">•</span>
-                              <span>{point}</span>
-                            </li>
-                          ))}
-                        </ul>
+                {finalResults && (
+                  <div className="space-y-8">
+                    {/* Selected Theme Summary */}
+                    {selectedTheme && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-3">
+                          Selected Theme
+                        </h3>
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <h4 className="font-semibold text-blue-900 mb-2">
+                            {selectedTheme.title}
+                          </h4>
+                          <p className="text-blue-800 text-sm">
+                            {selectedTheme.description}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Articles */}
+                    {finalResults.article && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                          📰 Articles
+                          {finalResults.edited_content?.article && (
+                            <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                              Edited (Quality:{" "}
+                              {
+                                finalResults.generation_metadata
+                                  ?.content_quality_scores?.article
+                              }
+                              /10)
+                            </span>
+                          )}
+                        </h3>
+                        {(
+                          finalResults.edited_content?.article?.articles ||
+                          finalResults.article.articles
+                        )?.map((article: any, index: number) => (
+                          <div
+                            key={index}
+                            className="mb-6 p-4 border border-gray-100 rounded-lg"
+                          >
+                            <h4 className="text-xl font-bold text-gray-900 mb-2">
+                              {article.headline || article.title}
+                            </h4>
+                            {article.subheadline && (
+                              <h5 className="text-lg text-gray-700 mb-3">
+                                {article.subheadline}
+                              </h5>
+                            )}
+                            <div className="prose prose-sm max-w-none text-gray-600 mb-4">
+                              {article.body
+                                ?.split("\n")
+                                .slice(0, 3)
+                                .map((paragraph: string, pIndex: number) => (
+                                  <p key={pIndex} className="mb-2">
+                                    {paragraph}
+                                  </p>
+                                ))}
+                              {article.body?.split("\n").length > 3 && (
+                                <p className="text-gray-500 font-medium">
+                                  ... ({article.wordCount || article.word_count}{" "}
+                                  words total)
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                              <span>CTA: {article.call_to_action}</span>
+                              <span>•</span>
+                              <span>Concept: {article.concept_used}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* LinkedIn Posts */}
+                    {finalResults.linkedin_posts && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                          💼 LinkedIn Posts
+                          {finalResults.edited_content?.linkedin_posts && (
+                            <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                              Edited (Quality:{" "}
+                              {
+                                finalResults.generation_metadata
+                                  ?.content_quality_scores?.linkedin
+                              }
+                              /10)
+                            </span>
+                          )}
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {(
+                            finalResults.edited_content?.linkedin_posts
+                              ?.posts || finalResults.linkedin_posts.posts
+                          )?.map((post: any, index: number) => (
+                            <div
+                              key={index}
+                              className="p-4 border border-gray-100 rounded-lg bg-blue-50"
+                            >
+                              <div className="text-sm text-gray-900 mb-2">
+                                {post.hook && (
+                                  <p className="font-semibold mb-1">
+                                    {post.hook}
+                                  </p>
+                                )}
+                                <p>{post.body || post.content}</p>
+                              </div>
+                              <div className="text-xs text-blue-700 border-t border-blue-200 pt-2 mt-2">
+                                <p>CTA: {post.call_to_action}</p>
+                                <p>Characters: {post.character_count}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Social Media Posts */}
+                    {finalResults.social_posts && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                          📱 Social Media Posts
+                          {finalResults.edited_content?.social_posts && (
+                            <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                              Edited (Quality:{" "}
+                              {
+                                finalResults.generation_metadata
+                                  ?.content_quality_scores?.social
+                              }
+                              /10)
+                            </span>
+                          )}
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {(
+                            finalResults.edited_content?.social_posts?.posts ||
+                            finalResults.social_posts.posts
+                          )?.map((post: any, index: number) => (
+                            <div
+                              key={index}
+                              className="p-4 border border-gray-100 rounded-lg"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-white bg-gray-600 px-2 py-1 rounded">
+                                  {post.platform?.toUpperCase()}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {post.character_count} chars
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-900 mb-2">
+                                {post.content}
+                              </p>
+                              {post.visual_suggestion && (
+                                <p className="text-xs text-gray-500 italic">
+                                  Visual: {post.visual_suggestion}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Research Summary */}
+                    {finalResults.research_dossier && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">
+                          🔬 Research Summary
+                        </h3>
+                        <p className="text-gray-600 mb-4">
+                          {finalResults.research_dossier.researchSummary}
+                        </p>
+                        <div className="text-sm text-gray-500">
+                          <p>
+                            Key findings:{" "}
+                            {finalResults.research_dossier.whitepaperEvidence
+                              ?.keyFindings?.length || 0}
+                          </p>
+                          <p>
+                            Whitepaper chunks analyzed:{" "}
+                            {finalResults.generation_metadata
+                              ?.whitepaper_chunks_analyzed || 0}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="text-center">
+                <div className="text-center mt-8">
                   <div className="space-x-4">
                     <Link
                       href="/dashboard"
@@ -1122,6 +1319,7 @@ export default function GenerateContentPage() {
                         setError(null);
                         setWorkflowState(null);
                         setCurrentWorkflowState(null);
+                        setFinalResults(null);
                       }}
                       className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                     >
@@ -1177,7 +1375,7 @@ export default function GenerateContentPage() {
                         Processing...
                       </>
                     ) : currentStep === 3 ? (
-                      "Complete"
+                      "Generate Content"
                     ) : currentStep === 2 ? (
                       "Generate Themes"
                     ) : (

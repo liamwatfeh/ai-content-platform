@@ -126,58 +126,51 @@ IMPORTANT:
 
 Your final output should include 3 concept seeds based on your progressive research.
 
-**ASPIRATION**: Become the "treasure hunter and initial creative" who conducts thorough, iterative research to uncover the whitepaper's most valuable insights. Start with broad strategic queries based on the whitepaper context, analyze what's promising, then drill deeper with targeted follow-up queries. Build comprehensive understanding through 8-12 strategic searches before synthesizing findings into concept seeds.
+ASPIRATION: Become the "treasure hunter and initial creative" who conducts thorough, iterative research to uncover the whitepaper's most valuable insights. Start with broad strategic queries based on the whitepaper context, analyze what's promising, then drill deeper with targeted follow-up queries. Build comprehensive understanding through 8-12 strategic searches before synthesizing findings into concept seeds.
 
-**RESULTS**: Execute systematic iterative research following this approach:
+RESULTS: Execute systematic iterative research following this approach:
 
-**SEARCH STRATEGY**:
-1. **Initial Broad Phase (3-4 queries)**: Start with high-level topics from whitepaper context
-2. **Analysis Phase**: Evaluate which broad searches yielded the most promising insights  
-3. **Deep Dive Phase (4-6 queries)**: Create targeted queries to drill deeper into promising areas
-4. **Follow-up Phase (2-4 queries)**: Pursue specific details, statistics, or methodologies found in deep dives
-5. **Synthesis Phase**: Transform comprehensive findings into 3 concept seeds (MUST BE 3)
+SEARCH STRATEGY:
+1. Initial Broad Phase (3-4 queries): Start with high-level topics from whitepaper context
+2. Analysis Phase: Evaluate which broad searches yielded the most promising insights  
+3. Deep Dive Phase (4-6 queries): Create targeted queries to drill deeper into promising areas
+4. Follow-up Phase (2-4 queries): Pursue specific details, statistics, or methodologies found in deep dives
+5. Synthesis Phase: Transform comprehensive findings into 3 concept seeds (MUST BE 3)
 
-**EACH SEARCH ITERATION MUST**:
+EACH SEARCH ITERATION MUST:
 - Build on previous findings rather than repeat similar searches
 - Follow the most promising threads from previous results
 - Get progressively more specific and targeted
 - Stop only when you've exhausted promising angles or hit search limits
 
-**KISMET**: The magic happens when your 8th search uncovers the detail that transforms a good insight into an amazing concept seed - this is why iterative searching matters.
+KISMET: The magic happens when your 8th search uncovers the detail that transforms a good insight into an amazing concept seed - this is why iterative searching matters.
 
-**WORKFLOW CONTEXT**: You're the "First Ideas" agent conducting thorough investigative research. The Brief Analysis Agent has provided strategic direction, and your concept seeds will feed into the Concept Synthesis Agent, who will refine and expand your ideas. Don't rush - comprehensive research now saves work later and produces better concepts.
+WORKFLOW CONTEXT: You're the "First Ideas" agent conducting thorough investigative research. The Brief Analysis Agent has provided strategic direction, and your concept seeds will feed into the Concept Synthesis Agent, who will refine and expand your ideas. Don't rush - comprehensive research now saves work later and produces better concepts.
 
-**STAGE OBJECTIVE**: Conduct thorough iterative research (8-12 searches minimum) to uncover deep insights and transform them into compelling concept seeds.
+STAGE OBJECTIVE: Conduct thorough iterative research (8-12 searches minimum) to uncover deep insights and transform them into compelling concept seeds.
 
-**SEARCH EXECUTION REQUIREMENTS**:
-- **Minimum 8 searches, target 10-12 searches**
-- **Each search must build on previous findings**  
-- **Progress from broad → specific → detailed**
-- **Follow promising threads until exhausted**
-- **Document your reasoning for each query**`;
+SEARCH EXECUTION REQUIREMENTS:
+- Minimum 8 searches, target 10-12 searches
+- Each search must build on previous findings  
+- Progress from broad → specific → detailed
+- Follow promising threads until exhausted
+- Document your reasoning for each query
 
-    const userPrompt = `**WHITEPAPER CONTEXT**: ${whitepaperContext}
+Based on the context provided, generate 2-3 initial broad queries to begin research. Return only a JSON array of queries.`;
 
-**MARKETING BRIEF CONTEXT**:
-- Business Context: ${state.businessContext}
-- Target Audience: ${state.targetAudience}
-- Marketing Goals: ${state.marketingGoals}
-- Executive Summary: ${marketingBrief.executiveSummary || "Not provided"}
-- Campaign Objectives: ${JSON.stringify(
-      marketingBrief.campaignObjectives || []
-    )}
-- Key Messages: ${JSON.stringify(marketingBrief.keyMessages || [])}
-- Target Persona: ${JSON.stringify(marketingBrief.targetPersona || {})}
+    const userPrompt = `WHITEPAPER CONTEXT: ${whitepaperContext}
 
-**PREVIOUS THEMES TO AVOID**:
-${
-  state.previousThemes
-    ?.map((theme: Theme) => `- ${theme.title}: ${theme.description}`)
-    .join("\n") || "None"
-}
+MARKETING BRIEF CONTEXT:
+Business Context: ${state.businessContext}
+Target Audience: ${state.targetAudience}
+Marketing Goals: ${state.marketingGoals}
+Executive Summary: ${marketingBrief.executiveSummary || "Not provided"}
+Campaign Objectives: ${JSON.stringify(marketingBrief.campaignObjectives || [])}
+Key Messages: ${JSON.stringify(marketingBrief.keyMessages || [])}
+Target Persona: ${JSON.stringify(marketingBrief.targetPersona || {})}
 
-Based on this context, generate 2-3 initial broad queries to begin our research.
-Return only a JSON array of queries, for example: ["query1", "query2", "query3"]`;
+PREVIOUS THEMES TO AVOID:
+${state.previousThemes?.map((theme: Theme) => `- ${theme.title}: ${theme.description}`).join("\n") || "None"}`;
 
     // Get initial queries with structured parsing
     const initialQueriesPrompt = `${userPrompt}\n\n${initialQueriesParser.getFormatInstructions()}`;
@@ -233,7 +226,7 @@ Return only a JSON array of queries, for example: ["query1", "query2", "query3"]
             query,
             whitepaperNamespace: whitepaperConfig.namespace,
             indexName: whitepaperConfig.indexName,
-            topK: 10,
+            topK: 5,
             topN: 5,
           });
 
@@ -241,9 +234,7 @@ Return only a JSON array of queries, for example: ["query1", "query2", "query3"]
           allSearchResults.push(...parsedResults.results);
 
           // Analyze results and plan next queries
-          const analysisPrompt = `Analyze these search results and suggest 2-3 follow-up queries to dig deeper:
-
-Search Query: "${query}"
+          const analysisPrompt = `Search Query: "${query}"
 Results:
 ${JSON.stringify(parsedResults.results, null, 2)}
 
@@ -255,7 +246,7 @@ ${analysisParser.getFormatInstructions()}`;
             {
               role: "system",
               content:
-                "Analyze search results and plan next queries. Follow the format instructions exactly.",
+                "Analyze search results and suggest 2-3 follow-up queries to dig deeper. Follow the format instructions exactly.",
             },
             { role: "user", content: analysisPrompt },
           ]);
@@ -327,9 +318,7 @@ ${analysisParser.getFormatInstructions()}`;
       .slice(0, 30); // Top 30 unique results for comprehensive analysis
 
     // Generate 3 concept seeds based on comprehensive research
-    const conceptSynthesisPrompt = `Based on your completed iterative research, now synthesize your findings into exactly 3 concept seeds.
-
-**RESEARCH RESULTS** (Top ${uniqueResults.length} findings):
+    const conceptSynthesisPrompt = `RESEARCH RESULTS (Top ${uniqueResults.length} findings):
 ${uniqueResults
   .map(
     (result: SearchResult, i) => `
@@ -340,7 +329,7 @@ Category: ${result.category || "General"}
   )
   .join("\n")}
 
-**SEARCH EXECUTION LOG**:
+SEARCH EXECUTION LOG:
 ${searchExecutionLog
   .map(
     (log, i) => `
@@ -351,14 +340,9 @@ Analysis: ${log.analysis}
   )
   .join("\n")}
 
-**SYNTHESIS REQUIREMENTS**:
-- Generate exactly 3 concept seeds
-- Each must leverage different aspects of your research findings
-- Build on the iterative insights you've uncovered
-- Avoid any similarity to previous themes: ${JSON.stringify(
+Previous themes to avoid: ${JSON.stringify(
       state.previousThemes?.map((t: Theme) => t.title) || []
     )}
-- Focus on competitive advantages discovered
 
 ${themesParser.getFormatInstructions()}`;
 
@@ -369,7 +353,7 @@ ${themesParser.getFormatInstructions()}`;
       {
         role: "system",
         content:
-          "You are synthesizing comprehensive research findings into 3 distinct concept seeds. Follow the format instructions exactly.",
+          "Based on completed iterative research, synthesize findings into exactly 3 concept seeds. Generate exactly 3 concept seeds. Each must leverage different aspects of research findings. Build on the iterative insights uncovered. Avoid any similarity to previous themes. Focus on competitive advantages discovered. Follow the format instructions exactly.",
       },
       { role: "user", content: conceptSynthesisPrompt },
     ]);

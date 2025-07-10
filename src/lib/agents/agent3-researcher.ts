@@ -112,43 +112,17 @@ export async function deepResearchAgent(
     // System prompt for Agent 3 - Using inline prompts to avoid unused variable error
 
     // Generate initial whitepaper evidence extraction queries
-    const initialQueryPrompt = `Based on the selected theme, generate 3-5 targeted queries to EXTRACT MAXIMUM EVIDENCE from the whitepaper for this concept.
-
-**SELECTED THEME**:
+    const initialQueryPrompt = `SELECTED THEME:
 Title: ${selectedTheme.title}
 Description: ${selectedTheme.description}
-Why It Works: ${selectedTheme.whyItWorks.join(", ")}
+Why It Works: ${Array.isArray(selectedTheme.whyItWorks) ? selectedTheme.whyItWorks.join(", ") : selectedTheme.whyItWorks || "Not specified"}
 Detailed Description: ${selectedTheme.detailedDescription}
 
-**MARKETING CONTEXT**:
-- Business Context: ${state.businessContext}
-- Target Audience: ${state.targetAudience}
-- Marketing Goals: ${state.marketingGoals}
-- Marketing Brief: ${JSON.stringify(marketingBrief, null, 2)}
-
-**RAG-OPTIMIZED QUERY STRATEGY**:
-Generate SHORT, TARGETED keyword queries (2-6 words max) that will effectively retrieve relevant content:
-
-**EXAMPLES OF GOOD RAG QUERIES**:
-- "productivity gains statistics"
-- "ROI metrics AI"
-- "case study results"
-- "implementation timeline"
-- "adoption barriers"
-- "training methodology"
-
-**EXAMPLES OF BAD RAG QUERIES** (too long/verbose):
-- "What specific quantitative data does the whitepaper provide about productivity gains"
-- "How does the organization measure success in AI implementation"
-
-**QUERY FOCUS AREAS**:
-1. **Quantitative data**: "statistics", "ROI data", "productivity metrics", "cost savings"
-2. **Case studies**: "case study", "implementation example", "success story"
-3. **Methodologies**: "framework", "methodology", "assessment", "training approach"
-4. **Barriers**: "resistance", "barriers", "challenges", "obstacles"
-5. **Benefits**: "benefits", "advantages", "outcomes", "results"
-
-Keep queries concise and keyword-focused for optimal semantic search results.
+MARKETING CONTEXT:
+Business Context: ${state.businessContext}
+Target Audience: ${state.targetAudience}
+Marketing Goals: ${state.marketingGoals}
+Marketing Brief: ${JSON.stringify(marketingBrief, null, 2)}
 
 ${researchQueriesParser.getFormatInstructions()}`;
 
@@ -157,7 +131,7 @@ ${researchQueriesParser.getFormatInstructions()}`;
       {
         role: "system",
         content:
-          "Generate deep research queries to explore the selected theme. Follow the format instructions exactly.",
+          "Based on the selected theme, generate 3-5 targeted queries to EXTRACT MAXIMUM EVIDENCE from the whitepaper for this concept. Generate SHORT, TARGETED keyword queries (2-6 words max) that will effectively retrieve relevant content. Examples of good RAG queries: 'productivity gains statistics', 'ROI metrics AI', 'case study results', 'implementation timeline', 'adoption barriers', 'training methodology'. Avoid long/verbose queries. Query focus areas: 1) Quantitative data: 'statistics', 'ROI data', 'productivity metrics', 'cost savings' 2) Case studies: 'case study', 'implementation example', 'success story' 3) Methodologies: 'framework', 'methodology', 'assessment', 'training approach' 4) Barriers: 'resistance', 'barriers', 'challenges', 'obstacles' 5) Benefits: 'benefits', 'advantages', 'outcomes', 'results'. Keep queries concise and keyword-focused for optimal semantic search results. Follow the format instructions exactly.",
       },
       { role: "user", content: initialQueryPrompt },
     ]);
@@ -202,31 +176,21 @@ ${researchQueriesParser.getFormatInstructions()}`;
             query,
             whitepaperNamespace: whitepaperConfig.namespace,
             indexName: whitepaperConfig.indexName,
-            topK: 12,
-            topN: 8,
+            topK: 10,
+            topN: 5,
           });
 
           const parsedResults = JSON.parse(searchResult);
           allResearchResults.push(...parsedResults.results);
 
           // Analyze results and develop concept angles
-          const analysisPrompt = `Analyze these research results and develop concept angles:
+          const analysisPrompt = `Current Theme: ${selectedTheme.title}
+Search Query: "${query}"
 
-**Current Theme**: ${selectedTheme.title}
-**Search Query**: "${query}"
-
-**Results**:
+Results:
 ${JSON.stringify(parsedResults.results, null, 2)}
 
-**Previous Research**: ${researchLog.map((log) => log.query).join(", ")}
-
-Analyze these results and:
-1. Identify interesting angles for content concepts
-2. Note compelling evidence or insights
-3. Suggest 2-4 SHORT, RAG-OPTIMIZED follow-up queries (2-6 words each) to explore promising angles deeper
-4. Consider contrarian or unexpected perspectives
-
-**FOLLOW-UP QUERY EXAMPLES**: "leadership training", "skill assessment", "adoption metrics", "resistance factors"
+Previous Research: ${researchLog.map((log) => log.query).join(", ")}
 
 ${conceptDevelopmentParser.getFormatInstructions()}`;
 
@@ -234,7 +198,7 @@ ${conceptDevelopmentParser.getFormatInstructions()}`;
             {
               role: "system",
               content:
-                "Analyze research results and develop concept angles. Follow the format instructions exactly.",
+                "Analyze research results and develop concept angles. Identify interesting angles for content concepts. Note compelling evidence or insights. Suggest 2-4 SHORT, RAG-OPTIMIZED follow-up queries (2-6 words each) to explore promising angles deeper. Consider contrarian or unexpected perspectives. Follow-up query examples: 'leadership training', 'skill assessment', 'adoption metrics', 'resistance factors'. Follow the format instructions exactly.",
             },
             { role: "user", content: analysisPrompt },
           ]);
@@ -305,30 +269,20 @@ ${conceptDevelopmentParser.getFormatInstructions()}`;
       .slice(0, 40); // Top 40 unique results for comprehensive concept development
 
     // Generate final research dossier with 3 suggested concepts - SIMPLIFIED VERSION
-    const conceptSynthesisPrompt = `Create a streamlined research dossier with 3 suggested content concepts from whitepaper analysis.
+    const conceptSynthesisPrompt = `SELECTED THEME: ${JSON.stringify(selectedTheme, null, 2)}
 
-**SELECTED THEME**: ${JSON.stringify(selectedTheme, null, 2)}
-
-**MARKETING CONTEXT**:
+MARKETING CONTEXT:
 Business: ${state.businessContext}
 Audience: ${state.targetAudience}
 Goals: ${state.marketingGoals}
 
-**RESEARCH RESULTS** (${uniqueResults.length} findings):
+RESEARCH RESULTS (${uniqueResults.length} findings):
 ${uniqueResults
   .slice(0, 20) // Limit to top 20 to reduce prompt size
   .map(
     (result: SearchResult, i) => `${i + 1}. ${result.text.substring(0, 150)}...`
   )
   .join("\n")}
-
-**REQUIREMENTS**:
-1. Extract 6-8 KEY FINDINGS with confidence levels (high/medium/low)
-2. Create exactly 3 SUGGESTED CONCEPTS for drafting agents to choose from
-3. Each concept needs: title, angle, why it works, 3 key evidence points, content direction
-4. Include brief research summary
-
-**FORMAT**: Follow the JSON schema exactly. Be concise but specific with evidence.
 
 ${researchDossierParser.getFormatInstructions()}`;
 
@@ -341,7 +295,7 @@ ${researchDossierParser.getFormatInstructions()}`;
       {
         role: "system",
         content:
-          "Synthesize comprehensive research into 3 suggested content concepts for drafting agents to evaluate. Follow the format instructions exactly.",
+          "Create a streamlined research dossier with 3 suggested content concepts from whitepaper analysis. Extract 6-8 KEY FINDINGS with confidence levels (high/medium/low). Create exactly 3 SUGGESTED CONCEPTS for drafting agents to choose from. Each concept needs: title, angle, why it works, 3 key evidence points, content direction. Include brief research summary. Follow the JSON schema exactly. Be concise but specific with evidence. Follow the format instructions exactly.",
       },
       { role: "user", content: conceptSynthesisPrompt },
     ]);
@@ -459,7 +413,7 @@ ${researchDossierParser.getFormatInstructions()}`;
         ...researchLog.map((log) => log.query),
       ],
       currentStep: "research_complete",
-      needsHumanInput: true, // Pause for user to review concepts
+      needsHumanInput: false, // Continue to content generation automatically
     };
   } catch (error) {
     console.error("❌ Agent 3 Error:", error);
