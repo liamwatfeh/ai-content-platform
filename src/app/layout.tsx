@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Unbounded, Archivo } from "next/font/google";
 import "./globals.css";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
+const unbounded = Unbounded({
+  subsets: ["latin"],
+  variable: "--font-unbounded",
+});
+
+const archivo = Archivo({
+  subsets: ["latin"],
+  variable: "--font-archivo",
+});
+
 export const metadata: Metadata = {
-  title: "ContentFlow AI - Transform White Papers into Marketing Campaigns",
+  title: "Content Brain - Transform White Papers into Marketing Campaigns",
   description:
     "AI-powered platform that converts your research documents into articles, LinkedIn posts, and social media content in minutes.",
   keywords:
@@ -23,10 +34,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} font-sans antialiased min-h-screen`}
+        className={`${inter.variable} ${unbounded.variable} ${archivo.variable} font-sans antialiased min-h-screen`}
         suppressHydrationWarning
       >
-        <div className="relative">{children}</div>
+        <SidebarProvider>
+          <div className="relative">{children}</div>
+        </SidebarProvider>
       </body>
     </html>
   );
