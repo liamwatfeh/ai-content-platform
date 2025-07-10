@@ -39,18 +39,29 @@ export async function articleEditorAgent(
       throw new Error("Article output is required for editing");
     }
 
-    const marketingBrief = JSON.parse(state.marketingBrief) as MarketingBrief;
+    // Parse the marketing brief from Agent 1 (handles Agent 1 output format)
+    let marketingBrief;
+    try {
+      marketingBrief =
+        typeof state.marketingBrief === "string"
+          ? JSON.parse(state.marketingBrief)
+          : state.marketingBrief;
+    } catch (error) {
+      console.error("❌ Failed to parse marketing brief:", error);
+      throw new Error("Invalid marketing brief format");
+    }
+
     const articleOutput = state.articleOutput as ArticleOutput;
 
     console.log(`✏️ Editing ${articleOutput.articles.length} article(s)...`);
 
-    // Create the article editing prompt
+    // Create the article editing prompt (using Agent 1 output format)
     const editingPrompt = `MARKETING BRIEF:
-Business: ${marketingBrief.business_overview}
-Audience: ${marketingBrief.target_audience_analysis}
-Objectives: ${marketingBrief.marketing_objectives}
-Key Messages: ${marketingBrief.key_messages.join(" | ")}
-Tone: ${marketingBrief.tone_and_voice}
+Executive Summary: ${marketingBrief.executiveSummary || "Not provided"}
+Target Persona: ${JSON.stringify(marketingBrief.targetPersona || {})}
+Campaign Objectives: ${JSON.stringify(marketingBrief.campaignObjectives || [])}
+Key Messages: ${JSON.stringify(marketingBrief.keyMessages || [])}
+Call to Action: ${marketingBrief.callToAction || "Not specified"}
 
 ARTICLES TO EDIT:
 ${articleOutput.articles

@@ -64,7 +64,18 @@ export async function socialWriterAgent(
       );
     }
 
-    const marketingBrief = JSON.parse(state.marketingBrief) as MarketingBrief;
+    // Parse the marketing brief from Agent 1 (handles Agent 1 output format)
+    let marketingBrief;
+    try {
+      marketingBrief =
+        typeof state.marketingBrief === "string"
+          ? JSON.parse(state.marketingBrief)
+          : state.marketingBrief;
+    } catch (error) {
+      console.error("❌ Failed to parse marketing brief:", error);
+      throw new Error("Invalid marketing brief format");
+    }
+
     const researchDossier = state.researchDossier as ResearchDossier;
     const socialPostsCount = state.socialPostsCount || 8;
 
@@ -104,14 +115,13 @@ export async function socialWriterAgent(
       `📱 Generating ${socialPostsCount} social media post(s) using research dossier...`
     );
 
-    // Create the social media post generation prompt
+    // Create the Twitter post generation prompt (using Agent 1 output format)
     const socialPrompt = `MARKETING BRIEF:
-Business: ${marketingBrief.business_overview}
-Audience: ${marketingBrief.target_audience_analysis}
-Objectives: ${marketingBrief.marketing_objectives}
-Key Messages: ${Array.isArray(marketingBrief.key_messages) ? marketingBrief.key_messages.join(" | ") : marketingBrief.key_messages || "Not specified"}
-Tone: ${marketingBrief.tone_and_voice}
-Positioning: ${marketingBrief.competitive_positioning}
+Executive Summary: ${marketingBrief.executiveSummary || "Not provided"}
+Target Persona: ${JSON.stringify(marketingBrief.targetPersona || {})}
+Campaign Objectives: ${JSON.stringify(marketingBrief.campaignObjectives || [])}
+Key Messages: ${JSON.stringify(marketingBrief.keyMessages || [])}
+Call to Action: ${JSON.stringify(marketingBrief.callToAction || {})}
 
 SELECTED THEME: ${state.selectedTheme.title}
 Description: ${state.selectedTheme.description}
@@ -138,116 +148,181 @@ ${researchDossier.suggestedConcepts
   )
   .join("\n\n")}
 
-Social media posts to generate: ${socialPostsCount}
+Twitter posts to generate: ${socialPostsCount}
 CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}
 
 ${socialOutputParser.getFormatInstructions()}`;
 
-    console.log("🎯 Generating social media posts with Claude Sonnet 4...");
-
-    // Generate social media posts using Claude with tool access
-    const systemPrompt = `You are an expert social media strategist who creates viral, engaging content that drives massive engagement. Your posts consistently perform in the top 1% for reach and engagement.
-
-AVAILABLE TOOL:
-You have access to a Pinecone search tool that can search through "${whitepaperTitle}" if you need additional evidence, specific quotes, or deeper details beyond what's provided in the research dossier.
-
-The tool searches through the whitepaper content and returns relevant passages. Use it strategically when:
-- You need specific statistics for impactful social proof
-- You want to find quotable insights or data points
-- You need to verify claims for credibility
-- You want additional context for viral content angles
-
-TOOL USAGE GUIDELINES:
-- Use short, focused search queries (2-6 words) for best results
-- Examples: "ROI statistics", "success metrics", "breakthrough results"
-- Only search if you need specific data beyond the provided research
-- Focus on finding shareable, quotable insights
-
-SOCIAL MEDIA POST REQUIREMENTS:
-- Generate exactly the specified number of social media posts
-- Mix of platforms: Twitter/X, Facebook, Instagram
-- Each post should be 50 words MAX (approximately 250-300 characters)
-- No hashtags - focus on natural, engaging language
-- Create scroll-stopping content that drives immediate engagement
-- Use compelling one-liners, insights, or thought-provoking statements
-- Integrate key research insights naturally
-- Each post should use a different suggested concept when possible
-- Include visual suggestions that complement the content
-- Optimize for virality and shareability
-
-SOCIAL MEDIA POST STYLES:
-- Twitter/X: Sharp insights, quick takes, thought-provoking questions (under 50 words)
-- Facebook: Conversational, community-focused but still concise (under 50 words)
-- Instagram: Visual-first thinking, inspirational but punchy (under 50 words)
-
-PLATFORM DISTRIBUTION:
-- Aim for roughly equal distribution across the three platforms
-- Keep ALL posts under 50 words regardless of platform
-- Consider visual elements that would enhance each post
-
-SOCIAL MEDIA BEST PRACTICES:
-- NO hashtags - rely on compelling content, not tags
-- Lead with strong hooks that stop the scroll
-- Use power words and emotional triggers
-- Keep language conversational and authentic
-- Create content that begs to be shared
-- Include specific, concrete details when possible
-- End with implicit calls-to-action through curiosity or questions
-- Consider how each post would look with accompanying visuals
-
-PLATFORM-SPECIFIC OPTIMIZATION:
-- Twitter/X: Sharp, quotable insights. Maximum impact in minimum words (under 50 words).
-- Facebook: Conversational, community-building tone but still concise (under 50 words)
-- Instagram: Visual storytelling focus with inspiring or aspirational angles (under 50 words)
-
-Focus on creating content that achieves marketing objectives while being genuinely shareable and valuable to the audience.`;
-
-    const socialResponse = await llm.invoke([
-      {
-        role: "system",
-        content: systemPrompt,
-      },
-      { role: "user", content: socialPrompt },
-    ]);
-
-    console.log("📱 Social media posts generated, parsing output...");
-
-    // Handle potential tool calls in the response
-    let finalContent: string;
-    if (Array.isArray(socialResponse.content)) {
-      // Response contains tool calls - extract the final text content
-      console.log("🔧 Processing response with tool calls...");
-      const textContent = socialResponse.content.find(
-        (item: any) => item.type === "text"
-      );
-      // @ts-ignore - Tool response content handling
-      finalContent = textContent?.text || "";
-    } else {
-      // Simple text response
-      finalContent = socialResponse.content;
-    }
-
-    if (!finalContent) {
-      throw new Error("No valid content received from social media generation");
-    }
-
-    console.log("🔍 Parsing social media output...");
-
-    // Parse the social media posts output
-    const socialOutput = await socialOutputParser.parse(finalContent);
-
     console.log(
-      `✅ Agent 4c: Generated ${socialOutput.posts.length} social media post(s) successfully`
+      "🎯 Generating Twitter posts with guaranteed structured output..."
     );
 
-    // Log individual posts for debugging
+    // Step 1: Optional research phase - determine if additional evidence is needed
+    let researchResults = "";
+    let toolUsageLog = "";
+
+    const needsResearchPrompt = `Based on this research dossier, do you need additional specific evidence from "${whitepaperTitle}" to create viral Twitter posts about "${state.selectedTheme.title}"?
+
+RESEARCH DOSSIER SUMMARY:
+Key Findings: ${researchDossier.whitepaperEvidence?.keyFindings?.map((f) => f.claim).join("; ") || "None"}
+Suggested Concepts: ${researchDossier.suggestedConcepts?.map((c) => c.title).join("; ") || "None"}
+
+Respond with "YES" if you need more specific statistics, viral hooks, or compelling examples. Respond with "NO" if the dossier provides sufficient evidence.`;
+
+    const researchDecision = await baseLlm.invoke([
+      {
+        role: "system",
+        content:
+          "You are an expert research analyst. Respond with only YES or NO.",
+      },
+      { role: "user", content: needsResearchPrompt },
+    ]);
+
+    const needsResearch = researchDecision.content
+      .toString()
+      .trim()
+      .toUpperCase()
+      .includes("YES");
+
+    if (needsResearch) {
+      console.log("🔍 Agent 4c determined additional research is needed...");
+
+      // Create research-focused LLM with tools
+      const researchLlm = baseLlm.bindTools([pineconeSearchTool]);
+
+      const researchPrompt = `You are a research assistant for viral Twitter content. Search "${whitepaperTitle}" for additional evidence to create engaging Twitter posts about "${state.selectedTheme.title}".
+
+CURRENT RESEARCH GAPS:
+Search for Twitter-optimized content:
+1. Viral statistics and shocking metrics for hooks
+2. Controversial insights and hot takes
+3. Relatable examples and success stories
+4. Trending topics and conversation starters
+
+Make 1-3 focused searches to gather engaging evidence for viral Twitter content.`;
+
+      try {
+        const researchResponse = await researchLlm.invoke([
+          {
+            role: "system",
+            content:
+              "Search for specific evidence to strengthen Twitter content. Use the search tool to find compelling viral data.",
+          },
+          { role: "user", content: researchPrompt },
+        ]);
+
+        // Extract and log tool results
+        if (Array.isArray(researchResponse.content)) {
+          const toolCalls = researchResponse.content.filter(
+            (item: any) => item.type === "tool_use"
+          );
+          const textBlocks = researchResponse.content.filter(
+            (item: any) => item.type === "text"
+          );
+
+          toolUsageLog = `Research phase: ${toolCalls.length} tool call(s) made`;
+          console.log(`🔍 ${toolUsageLog}`);
+
+          // Include research summary in final content
+          researchResults =
+            "\n\nADDITIONAL RESEARCH FINDINGS:\n" +
+            toolCalls
+              .map(
+                (call: any, i: number) =>
+                  `Research Query ${i + 1}: ${JSON.stringify(call.input)}`
+              )
+              .join("\n") +
+            (textBlocks.length > 0
+              ? `\nResearch Summary: ${(textBlocks[textBlocks.length - 1] as any)?.text || ""}`
+              : "");
+        }
+      } catch (error) {
+        console.log(
+          "⚠️ Research phase encountered issue, proceeding with dossier only"
+        );
+        researchResults =
+          "\n\nNote: Research phase encountered limitations, using research dossier evidence.";
+      }
+    } else {
+      console.log(
+        "✅ Agent 4c determined research dossier provides sufficient evidence"
+      );
+    }
+
+    // Step 2: Generate structured content with GUARANTEED JSON output
+    console.log(
+      "📝 Generating Twitter posts with guaranteed structured output..."
+    );
+
+    const contentPrompt = `${socialPrompt}${researchResults}`;
+
+    // Use withStructuredOutput for guaranteed JSON - no parsing needed!
+    const structuredLlm = baseLlm.withStructuredOutput(
+      socialOutputParser.schema
+    );
+
+    const socialOutput = await structuredLlm.invoke([
+      {
+        role: "system",
+        content: `You are an expert Twitter content strategist who creates viral, engaging content that drives massive engagement. Your posts consistently perform in the top 1% for reach and engagement.
+
+TWITTER VIRAL STRATEGY:
+- Start with hook-heavy openings that stop the scroll immediately
+- Use contrarian takes and thought-provoking insights
+- Include viral statistics and shocking data points
+- Create conversation starters and engagement triggers
+- Use Twitter-native language and formatting
+- Focus on shareability and virality potential
+- Build suspense and curiosity gaps
+
+TWITTER POST REQUIREMENTS:
+- Generate exactly ${socialPostsCount} Twitter post(s)
+- Each post under 280 characters (Twitter limit)
+- Include viral hooks, engaging insights, and conversation starters
+- Vary post types: stats, questions, hot takes, threads, quotes
+- Integrate evidence naturally from the research dossier${needsResearch ? " and additional research findings" : ""}
+- Focus on maximizing engagement: retweets, likes, replies
+- Use Twitter-optimized formatting and language
+
+${toolUsageLog ? `RESEARCH CONTEXT: ${toolUsageLog}` : ""}`,
+      },
+      {
+        role: "user",
+        content: contentPrompt,
+      },
+    ]);
+
+    console.log(
+      "📱 Twitter posts generated successfully with guaranteed structure!"
+    );
+
+    // Log detailed Twitter information
+    console.log("\n🐦 GENERATED TWITTER POSTS SUMMARY:");
+    console.log("=".repeat(80));
+    console.log(`Total Posts: ${socialOutput.posts.length}`);
+    console.log(`Generation Strategy: ${socialOutput.generation_strategy}`);
+    console.log(
+      `Whitepaper Utilization: ${socialOutput.whitepaper_utilization}`
+    );
+
     socialOutput.posts.forEach((post, index) => {
-      console.log(`📱 Social Post ${index + 1}:`);
-      console.log(`  Platform: ${post.platform}`);
-      console.log(`  Content: ${post.content.substring(0, 100)}...`);
-      console.log(`  Characters: ${post.character_count}`);
-      console.log(`  Concept: ${post.concept_used}`);
+      console.log(`\n${"=".repeat(50)}`);
+      console.log(`🐦 TWITTER POST ${index + 1}`);
+      console.log(`${"=".repeat(50)}`);
+      console.log(`📱 Platform: ${post.platform}`);
+      console.log(`📊 Character Count: ${post.character_count}`);
+      console.log(`🎯 Concept Used: ${post.concept_used}`);
+      console.log(`\n📖 Content Preview:`);
+      console.log(`${post.content}`);
     });
+
+    console.log("\n" + "=".repeat(80));
+    console.log("🎉 TWITTER GENERATION COMPLETE");
+    console.log("=".repeat(80));
+
+    console.log(
+      `✅ Agent 4c: Generated ${socialOutput.posts.length} Twitter post(s) successfully`
+    );
 
     return {
       socialOutput,
@@ -256,7 +331,7 @@ Focus on creating content that achieves marketing objectives while being genuine
   } catch (error) {
     console.error("❌ Agent 4c Error:", error);
     throw new Error(
-      `Social media post generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      `Twitter post generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
     );
   }
 }
@@ -275,7 +350,8 @@ export async function searchWhitepaperForSocial(
       query,
       whitepaperNamespace: whitepaperConfig.namespace,
       indexName: whitepaperConfig.indexName,
-      topK: 10,
+      // ORIGINAL CODE (BACKED UP): topK: 10,
+      topK: 5, // Reduced for faster testing
       topN: 5,
     });
 

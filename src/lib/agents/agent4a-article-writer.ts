@@ -147,167 +147,176 @@ CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}
 
 ${articleOutputParser.getFormatInstructions()}`;
 
-    console.log("🎯 Generating articles with Claude Sonnet 4...");
+    console.log("🎯 Generating articles with guaranteed structured output...");
 
-    // Generate articles using Claude with tool access
-    const systemPrompt = `You are an expert article writer following The Economist style guide. Generate compelling, evidence-based articles that achieve the marketing objectives while maintaining journalistic integrity and engaging the target audience.
+    // Step 1: Optional research phase - determine if additional evidence is needed
+    let researchResults = "";
+    let toolUsageLog = "";
 
-CRITICAL OUTPUT REQUIREMENT:
-You MUST respond with ONLY the JSON output specified in the format instructions. Do NOT include any explanatory text, reasoning, or tool usage descriptions. Output ONLY the valid JSON structure.
+    const needsResearchPrompt = `Based on this research dossier, do you need additional specific evidence from "${whitepaperTitle}" to write authoritative Economist-style articles about "${state.selectedTheme.title}"?
 
-AVAILABLE TOOL:
-You have access to a Pinecone search tool that can search through "${whitepaperTitle}" if you need additional evidence, specific quotes, or deeper details beyond what's provided in the research dossier. 
+RESEARCH DOSSIER SUMMARY:
+Key Findings: ${researchDossier.whitepaperEvidence?.keyFindings?.map((f) => f.claim).join("; ") || "None"}
+Suggested Concepts: ${researchDossier.suggestedConcepts?.map((c) => c.title).join("; ") || "None"}
 
-IMPORTANT: If you use the search tool, ensure your final response contains ONLY the complete JSON output with the articles, not any intermediate thoughts or explanations.
+Respond with "YES" if you need more specific statistics, case studies, or technical details. Respond with "NO" if the dossier provides sufficient evidence.`;
 
-The tool searches through the whitepaper content and returns relevant passages. Use it strategically when:
-- You need specific statistics or data points not in the research dossier
-- You want to find compelling quotes or examples
-- You need to verify or expand on evidence claims
-- You want additional context for specific concepts
-
-TOOL USAGE GUIDELINES:
-- Use short, focused search queries (2-6 words) for best results
-- Examples: "ROI statistics", "case study results", "implementation challenges"
-- Only search if you genuinely need additional evidence beyond the provided research
-- The research dossier already contains comprehensive findings, so use the tool judiciously
-- After any tool usage, provide ONLY the final JSON output
-
-ARTICLE REQUIREMENTS:
-- Generate exactly the specified number of articles
-- Each article should be ~1000 words
-- Follow The Economist style: clear, analytical, authoritative but accessible
-- Use active voice and compelling headlines
-- Integrate whitepaper evidence naturally
-- Each article should use a different suggested concept if multiple articles requested
-- Include proper call-to-action aligned with marketing goals
-
-ARTICLE STRUCTURE:
-- Compelling headline that captures the essence
-- Supporting subheadline
-- Introduction that hooks the reader
-- Body with clear sections and evidence integration
-- Conclusion with key takeaways
-- Appropriate call-to-action
-
-FINAL REMINDER: Your response must be ONLY valid JSON matching the specified format. No additional text, explanations, or intermediate steps.`;
-
-    const articleResponse = await llm.invoke([
+    const researchDecision = await baseLlm.invoke([
       {
         role: "system",
-        content: systemPrompt,
+        content:
+          "You are an expert research analyst. Respond with only YES or NO.",
       },
-      { role: "user", content: articlePrompt },
+      { role: "user", content: needsResearchPrompt },
     ]);
 
-    console.log("📄 Articles generated, parsing output...");
+    const needsResearch = researchDecision.content
+      .toString()
+      .trim()
+      .toUpperCase()
+      .includes("YES");
 
-    // Handle potential tool calls in the response
-    let finalContent: string;
-    if (Array.isArray(articleResponse.content)) {
-      // Response contains tool calls - extract the final text content
-      console.log("🔧 Processing response with tool calls...");
-      const textContent = articleResponse.content.find(
-        (item: any) => item.type === "text"
-      );
-      finalContent = (textContent as any)?.text || "";
+    if (needsResearch) {
+      console.log("🔍 Agent 4a determined additional research is needed...");
 
-      // Log any tool calls that were made
-      const toolCalls = articleResponse.content.filter(
-        (item: any) => item.type === "tool_use"
-      );
-      if (toolCalls.length > 0) {
-        console.log(`🔍 Agent 4a made ${toolCalls.length} tool call(s):`);
-        toolCalls.forEach((call: any, index: number) => {
-          console.log(
-            `   ${index + 1}. Tool: ${call.name}, Input: ${JSON.stringify(call.input)}`
-          );
-        });
-      }
+      // Create research-focused LLM with tools
+      const researchLlm = baseLlm.bindTools([pineconeSearchTool]);
 
-      // If the text content is just tool usage explanation, try getting tool results
-      if (
-        finalContent &&
-        finalContent.includes("I'll") &&
-        finalContent.length < 200
-      ) {
-        console.log(
-          "⚠️ Detected tool usage explanation instead of final output"
-        );
-        console.log("🔄 Retrying with explicit JSON requirement...");
+      const researchPrompt = `You are a research assistant for The Economist. Search "${whitepaperTitle}" for additional evidence to strengthen articles about "${state.selectedTheme.title}".
 
-        // Retry with a more explicit prompt
-        const retryResponse = await baseLlm.invoke([
+CURRENT RESEARCH GAPS:
+Based on the research dossier, search for:
+1. Specific statistics and ROI data
+2. Business impact case studies  
+3. Technical implementation details
+4. Real-world examples and quotes
+
+Make 1-3 focused searches to gather compelling evidence for analytical articles.`;
+
+      try {
+        const researchResponse = await researchLlm.invoke([
           {
             role: "system",
-            content: `You are an expert article writer. Based on the provided research and evidence, generate articles in EXACTLY this JSON format. Do not explain your process or mention tools. Output ONLY valid JSON.`,
-          },
-          {
-            role: "user",
             content:
-              articlePrompt +
-              "\n\nIMPORTANT: Respond with ONLY the JSON output. No explanations or tool mentions.",
+              "Search for specific evidence to strengthen analytical articles. Use the search tool to find compelling data.",
           },
+          { role: "user", content: researchPrompt },
         ]);
 
-        finalContent = retryResponse.content as string;
+        // Extract and log tool results
+        if (Array.isArray(researchResponse.content)) {
+          const toolCalls = researchResponse.content.filter(
+            (item: any) => item.type === "tool_use"
+          );
+          const textBlocks = researchResponse.content.filter(
+            (item: any) => item.type === "text"
+          );
+
+          toolUsageLog = `Research phase: ${toolCalls.length} tool call(s) made`;
+          console.log(`🔍 ${toolUsageLog}`);
+
+          // Include research summary in final content
+          researchResults =
+            "\n\nADDITIONAL RESEARCH FINDINGS:\n" +
+            toolCalls
+              .map(
+                (call: any, i: number) =>
+                  `Research Query ${i + 1}: ${JSON.stringify(call.input)}`
+              )
+              .join("\n") +
+            (textBlocks.length > 0
+              ? `\nResearch Summary: ${(textBlocks[textBlocks.length - 1] as any)?.text || ""}`
+              : "");
+        }
+      } catch (error) {
+        console.log(
+          "⚠️ Research phase encountered issue, proceeding with dossier only"
+        );
+        researchResults =
+          "\n\nNote: Research phase encountered limitations, using research dossier evidence.";
       }
     } else {
-      // Standard string response
-      finalContent = articleResponse.content as string;
-    }
-
-    // Parse the article output
-    let articleOutput: ArticleOutput;
-    try {
-      const content = finalContent;
-      console.log("\n📋 RAW ARTICLE OUTPUT:");
-      console.log("=".repeat(80));
-      console.log(content);
-      console.log("=".repeat(80));
-
-      articleOutput = await articleOutputParser.parse(content);
-      console.log("✅ Article output parsed successfully");
-
-      // Log detailed article information
-      console.log("\n📰 GENERATED ARTICLES SUMMARY:");
-      console.log("=".repeat(80));
-      console.log(`Total Articles: ${articleOutput.articles.length}`);
-      console.log(`Generation Strategy: ${articleOutput.generation_strategy}`);
       console.log(
-        `Whitepaper Utilization: ${articleOutput.whitepaper_utilization}`
+        "✅ Agent 4a determined research dossier provides sufficient evidence"
       );
-
-      articleOutput.articles.forEach((article, index) => {
-        console.log(`\n${"=".repeat(50)}`);
-        console.log(`ARTICLE ${index + 1}`);
-        console.log(`${"=".repeat(50)}`);
-        console.log(`📰 Headline: ${article.headline}`);
-        console.log(`📝 Subheadline: ${article.subheadline}`);
-        console.log(`📊 Word Count: ${article.word_count}`);
-        console.log(`🎯 Concept Used: ${article.concept_used}`);
-        console.log(
-          `🔍 Key Takeaways: ${Array.isArray(article.key_takeaways) ? article.key_takeaways.join(" | ") : "Not specified"}`
-        );
-        console.log(
-          `🏷️ SEO Keywords: ${Array.isArray(article.seo_keywords) ? article.seo_keywords.join(", ") : "Not specified"}`
-        );
-        console.log(`📞 Call to Action: ${article.call_to_action}`);
-        console.log(`\n📖 Article Body Preview (first 200 chars):`);
-        console.log(`${article.body.substring(0, 200)}...`);
-      });
-
-      console.log("\n" + "=".repeat(80));
-      console.log("🎉 ARTICLE GENERATION COMPLETE");
-      console.log("=".repeat(80));
-    } catch (parseError) {
-      console.error("❌ Failed to parse article output:", parseError);
-      console.log("\n🔍 RAW CONTENT THAT FAILED TO PARSE:");
-      console.log("=".repeat(80));
-      console.log(articleResponse.content);
-      console.log("=".repeat(80));
-      throw new Error("Failed to generate valid article output");
     }
+
+    // Step 2: Generate structured content with GUARANTEED JSON output
+    console.log("📝 Generating articles with guaranteed structured output...");
+
+    const contentPrompt = `${articlePrompt}${researchResults}`;
+
+    // Use withStructuredOutput for guaranteed JSON - no parsing needed!
+    const structuredLlm = baseLlm.withStructuredOutput(
+      articleOutputParser.schema
+    );
+
+    const articleOutput = await structuredLlm.invoke([
+      {
+        role: "system",
+        content: `You are an expert article writer following The Economist style guide. Generate compelling, evidence-based articles that achieve the marketing objectives while maintaining journalistic integrity.
+
+THE ECONOMIST STYLE GUIDE REQUIREMENTS:
+- Clear, analytical, authoritative but accessible tone
+- Active voice and compelling headlines that capture the essence
+- Logical structure with smooth transitions between ideas
+- Evidence-based arguments with specific data and examples
+- Crisp, concise writing - every word earns its place
+- Engaging subheadlines that guide the reader
+- Strong opening hooks and decisive conclusions
+- Professional but not academic - accessible to intelligent general readers
+
+ARTICLE REQUIREMENTS:
+- Generate exactly ${articlesCount} article(s)
+- Each article ~1000 words in The Economist style
+- Use different suggested concepts if multiple articles requested
+- Integrate evidence naturally from the research dossier${needsResearch ? " and additional research findings" : ""}
+- Include compelling call-to-action aligned with marketing goals
+- Maintain journalistic integrity while achieving marketing objectives
+
+${toolUsageLog ? `RESEARCH CONTEXT: ${toolUsageLog}` : ""}`,
+      },
+      {
+        role: "user",
+        content: contentPrompt,
+      },
+    ]);
+
+    console.log(
+      "📄 Articles generated successfully with guaranteed structure!"
+    );
+
+    // Log detailed article information
+    console.log("\n📰 GENERATED ARTICLES SUMMARY:");
+    console.log("=".repeat(80));
+    console.log(`Total Articles: ${articleOutput.articles.length}`);
+    console.log(`Generation Strategy: ${articleOutput.generation_strategy}`);
+    console.log(
+      `Whitepaper Utilization: ${articleOutput.whitepaper_utilization}`
+    );
+
+    articleOutput.articles.forEach((article, index) => {
+      console.log(`\n${"=".repeat(50)}`);
+      console.log(`ARTICLE ${index + 1}`);
+      console.log(`${"=".repeat(50)}`);
+      console.log(`📰 Headline: ${article.headline}`);
+      console.log(`📝 Subheadline: ${article.subheadline}`);
+      console.log(`📊 Word Count: ${article.word_count}`);
+      console.log(`🎯 Concept Used: ${article.concept_used}`);
+      console.log(
+        `🔍 Key Takeaways: ${Array.isArray(article.key_takeaways) ? article.key_takeaways.join(" | ") : "Not specified"}`
+      );
+      console.log(
+        `🏷️ SEO Keywords: ${Array.isArray(article.seo_keywords) ? article.seo_keywords.join(", ") : "Not specified"}`
+      );
+      console.log(`📞 Call to Action: ${article.call_to_action}`);
+      console.log(`\n📖 Article Body Preview (first 200 chars):`);
+      console.log(`${article.body.substring(0, 200)}...`);
+    });
+
+    console.log("\n" + "=".repeat(80));
+    console.log("🎉 ARTICLE GENERATION COMPLETE");
+    console.log("=".repeat(80));
 
     console.log(
       `✅ Agent 4a: Generated ${articleOutput.articles.length} article(s) successfully`
@@ -338,7 +347,8 @@ export async function searchWhitepaperForArticle(
       query,
       whitepaperNamespace: whitepaperConfig.namespace,
       indexName: whitepaperConfig.indexName,
-      topK: 10,
+      // ORIGINAL CODE (BACKED UP): topK: 10,
+      topK: 5, // Reduced for faster testing
       topN: 5,
     });
 

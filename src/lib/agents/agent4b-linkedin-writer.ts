@@ -64,7 +64,18 @@ export async function linkedinWriterAgent(
       );
     }
 
-    const marketingBrief = JSON.parse(state.marketingBrief) as MarketingBrief;
+    // Parse the marketing brief from Agent 1 (handles Agent 1 output format)
+    let marketingBrief;
+    try {
+      marketingBrief =
+        typeof state.marketingBrief === "string"
+          ? JSON.parse(state.marketingBrief)
+          : state.marketingBrief;
+    } catch (error) {
+      console.error("❌ Failed to parse marketing brief:", error);
+      throw new Error("Invalid marketing brief format");
+    }
+
     const researchDossier = state.researchDossier as ResearchDossier;
     const linkedinPostsCount = state.linkedinPostsCount || 4;
 
@@ -104,14 +115,13 @@ export async function linkedinWriterAgent(
       `💼 Generating ${linkedinPostsCount} LinkedIn post(s) using research dossier...`
     );
 
-    // Create the LinkedIn post generation prompt
+    // Create the LinkedIn post generation prompt (using Agent 1 output format)
     const linkedinPrompt = `MARKETING BRIEF:
-Business: ${marketingBrief.business_overview}
-Audience: ${marketingBrief.target_audience_analysis}
-Objectives: ${marketingBrief.marketing_objectives}
-Key Messages: ${Array.isArray(marketingBrief.key_messages) ? marketingBrief.key_messages.join(" | ") : marketingBrief.key_messages || "Not specified"}
-Tone: ${marketingBrief.tone_and_voice}
-Positioning: ${marketingBrief.competitive_positioning}
+Executive Summary: ${marketingBrief.executiveSummary || "Not provided"}
+Target Persona: ${JSON.stringify(marketingBrief.targetPersona || {})}
+Campaign Objectives: ${JSON.stringify(marketingBrief.campaignObjectives || [])}
+Key Messages: ${JSON.stringify(marketingBrief.keyMessages || [])}
+Call to Action: ${JSON.stringify(marketingBrief.callToAction || {})}
 
 SELECTED THEME: ${state.selectedTheme.title}
 Description: ${state.selectedTheme.description}
@@ -143,98 +153,175 @@ CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}
 
 ${linkedinOutputParser.getFormatInstructions()}`;
 
-    console.log("🎯 Generating LinkedIn posts with Claude Sonnet 4...");
+    console.log(
+      "🎯 Generating LinkedIn posts with guaranteed structured output..."
+    );
 
-    // Generate LinkedIn posts using Claude with tool access
-    const systemPrompt = `You are an expert LinkedIn content strategist specializing in B2B thought leadership. Create engaging, professional LinkedIn posts that drive meaningful engagement and achieve marketing objectives.
+    // Step 1: Optional research phase - determine if additional evidence is needed
+    let researchResults = "";
+    let toolUsageLog = "";
 
-AVAILABLE TOOL:
-You have access to a Pinecone search tool that can search through "${whitepaperTitle}" if you need additional evidence, specific quotes, or deeper details beyond what's provided in the research dossier.
+    const needsResearchPrompt = `Based on this research dossier, do you need additional specific evidence from "${whitepaperTitle}" to create compelling LinkedIn posts about "${state.selectedTheme.title}"?
 
-The tool searches through the whitepaper content and returns relevant passages. Use it strategically when:
-- You need specific statistics or data points not in the research dossier
-- You want to find compelling quotes or examples for social proof
-- You need to verify or expand on evidence claims
-- You want additional context for specific concepts
+RESEARCH DOSSIER SUMMARY:
+Key Findings: ${researchDossier.whitepaperEvidence?.keyFindings?.map((f) => f.claim).join("; ") || "None"}
+Suggested Concepts: ${researchDossier.suggestedConcepts?.map((c) => c.title).join("; ") || "None"}
 
-TOOL USAGE GUIDELINES:
-- Use short, focused search queries (2-6 words) for best results
-- Examples: "ROI statistics", "case study results", "implementation challenges"
-- Only search if you genuinely need additional evidence beyond the provided research
-- The research dossier already contains comprehensive findings, so use the tool judiciously
+Respond with "YES" if you need more specific statistics, case studies, or compelling examples. Respond with "NO" if the dossier provides sufficient evidence.`;
 
-LINKEDIN POST REQUIREMENTS:
-- Generate exactly the specified number of LinkedIn posts
-- Each post should be 50-150 words (approximately 300-900 characters)
-- No hashtags - focus on natural, conversational tone
-- Include compelling hooks to grab attention
-- Use storytelling and thought leadership approaches
-- Integrate whitepaper evidence naturally
-- Each post should use a different suggested concept if multiple posts requested
-- Include clear call-to-action for engagement
-- Optimize for LinkedIn algorithm (questions, insights, personal experiences)
-
-LINKEDIN POST STRUCTURE:
-- Hook: Attention-grabbing opening line
-- Body: Main content with insights, stories, or actionable advice
-- Call-to-action: Question or engagement prompt
-
-LINKEDIN BEST PRACTICES:
-- NO hashtags - focus on natural, conversational language
-- Start with compelling hooks that stop the scroll
-- Use personal insights and experiences when relevant
-- Ask thought-provoking questions to drive engagement
-- Keep posts between 50-150 words (300-900 characters) for optimal engagement
-- Use line breaks for readability
-- End with clear calls-to-action that invite conversation
-
-Focus on creating posts that establish thought leadership while achieving the marketing objectives.`;
-
-    const linkedinResponse = await llm.invoke([
+    const researchDecision = await baseLlm.invoke([
       {
         role: "system",
-        content: systemPrompt,
+        content:
+          "You are an expert research analyst. Respond with only YES or NO.",
       },
-      { role: "user", content: linkedinPrompt },
+      { role: "user", content: needsResearchPrompt },
     ]);
 
-    console.log("💼 LinkedIn posts generated, parsing output...");
+    const needsResearch = researchDecision.content
+      .toString()
+      .trim()
+      .toUpperCase()
+      .includes("YES");
 
-    // Handle potential tool calls in the response
-    let finalContent: string;
-    if (Array.isArray(linkedinResponse.content)) {
-      // Response contains tool calls - extract the final text content
-      console.log("🔧 Processing response with tool calls...");
-      const textContent = linkedinResponse.content.find(
-        (item: any) => item.type === "text"
-      );
-      // @ts-ignore - Tool response content handling
-      finalContent = textContent?.text || "";
+    if (needsResearch) {
+      console.log("🔍 Agent 4b determined additional research is needed...");
+
+      // Create research-focused LLM with tools
+      const researchLlm = baseLlm.bindTools([pineconeSearchTool]);
+
+      const researchPrompt = `You are a research assistant for LinkedIn content. Search "${whitepaperTitle}" for additional evidence to strengthen posts about "${state.selectedTheme.title}".
+
+CURRENT RESEARCH GAPS:
+Search for LinkedIn-optimized content:
+1. Compelling statistics and metrics for hooks
+2. Real-world success stories and case studies
+3. Thought-provoking insights and quotes
+4. Professional insights and industry trends
+
+Make 1-3 focused searches to gather engaging evidence for LinkedIn posts.`;
+
+      try {
+        const researchResponse = await researchLlm.invoke([
+          {
+            role: "system",
+            content:
+              "Search for specific evidence to strengthen LinkedIn content. Use the search tool to find compelling data.",
+          },
+          { role: "user", content: researchPrompt },
+        ]);
+
+        // Extract and log tool results
+        if (Array.isArray(researchResponse.content)) {
+          const toolCalls = researchResponse.content.filter(
+            (item: any) => item.type === "tool_use"
+          );
+          const textBlocks = researchResponse.content.filter(
+            (item: any) => item.type === "text"
+          );
+
+          toolUsageLog = `Research phase: ${toolCalls.length} tool call(s) made`;
+          console.log(`🔍 ${toolUsageLog}`);
+
+          // Include research summary in final content
+          researchResults =
+            "\n\nADDITIONAL RESEARCH FINDINGS:\n" +
+            toolCalls
+              .map(
+                (call: any, i: number) =>
+                  `Research Query ${i + 1}: ${JSON.stringify(call.input)}`
+              )
+              .join("\n") +
+            (textBlocks.length > 0
+              ? `\nResearch Summary: ${(textBlocks[textBlocks.length - 1] as any)?.text || ""}`
+              : "");
+        }
+      } catch (error) {
+        console.log(
+          "⚠️ Research phase encountered issue, proceeding with dossier only"
+        );
+        researchResults =
+          "\n\nNote: Research phase encountered limitations, using research dossier evidence.";
+      }
     } else {
-      // Simple text response
-      finalContent = linkedinResponse.content;
+      console.log(
+        "✅ Agent 4b determined research dossier provides sufficient evidence"
+      );
     }
 
-    if (!finalContent) {
-      throw new Error("No valid content received from LinkedIn generation");
-    }
+    // Step 2: Generate structured content with GUARANTEED JSON output
+    console.log(
+      "📝 Generating LinkedIn posts with guaranteed structured output..."
+    );
 
-    console.log("🔍 Parsing LinkedIn output...");
+    const contentPrompt = `${linkedinPrompt}${researchResults}`;
 
-    // Parse the LinkedIn posts output
-    const linkedinOutput = await linkedinOutputParser.parse(finalContent);
+    // Use withStructuredOutput for guaranteed JSON - no parsing needed!
+    const structuredLlm = baseLlm.withStructuredOutput(
+      linkedinOutputParser.schema
+    );
+
+    const linkedinOutput = await structuredLlm.invoke([
+      {
+        role: "system",
+        content: `You are an expert LinkedIn content strategist specializing in B2B thought leadership. Create engaging, professional LinkedIn posts that drive meaningful engagement and achieve marketing objectives.
+
+LINKEDIN CONTENT STRATEGY:
+- Hook readers with compelling statistics or thought-provoking questions
+- Provide valuable insights that establish thought leadership
+- Include real-world examples and case studies for credibility
+- Use professional yet conversational tone
+- Structure with clear takeaways and actionable insights
+- End with engaging calls-to-action that encourage discussion
+
+POST REQUIREMENTS:
+- Generate exactly ${linkedinPostsCount} LinkedIn post(s)
+- Each post 150-300 words (LinkedIn optimal length)
+- Include engaging hooks, valuable insights, and clear CTAs
+- Vary post structures: insights, questions, stories, statistics
+- Integrate evidence naturally from the research dossier${needsResearch ? " and additional research findings" : ""}
+- Maintain professional credibility while driving engagement
+
+${toolUsageLog ? `RESEARCH CONTEXT: ${toolUsageLog}` : ""}`,
+      },
+      {
+        role: "user",
+        content: contentPrompt,
+      },
+    ]);
+
+    console.log(
+      "💼 LinkedIn posts generated successfully with guaranteed structure!"
+    );
+
+    // Log detailed LinkedIn information
+    console.log("\n📱 GENERATED LINKEDIN POSTS SUMMARY:");
+    console.log("=".repeat(80));
+    console.log(`Total Posts: ${linkedinOutput.posts.length}`);
+    console.log(`Generation Strategy: ${linkedinOutput.generation_strategy}`);
+    console.log(
+      `Whitepaper Utilization: ${linkedinOutput.whitepaper_utilization}`
+    );
+
+    linkedinOutput.posts.forEach((post, index) => {
+      console.log(`\n${"=".repeat(50)}`);
+      console.log(`LINKEDIN POST ${index + 1}`);
+      console.log(`${"=".repeat(50)}`);
+      console.log(`📊 Character Count: ${post.character_count}`);
+      console.log(`🎯 Concept Used: ${post.concept_used}`);
+      console.log(`💡 Hook: ${post.hook}`);
+      console.log(`📞 Call to Action: ${post.call_to_action}`);
+      console.log(`\n📖 Body Preview (first 200 chars):`);
+      console.log(`${post.body.substring(0, 200)}...`);
+    });
+
+    console.log("\n" + "=".repeat(80));
+    console.log("🎉 LINKEDIN GENERATION COMPLETE");
+    console.log("=".repeat(80));
 
     console.log(
       `✅ Agent 4b: Generated ${linkedinOutput.posts.length} LinkedIn post(s) successfully`
     );
-
-    // Log individual posts for debugging
-    linkedinOutput.posts.forEach((post, index) => {
-      console.log(`📝 LinkedIn Post ${index + 1}:`);
-      console.log(`  Hook: ${post.hook.substring(0, 100)}...`);
-      console.log(`  Characters: ${post.character_count}`);
-      console.log(`  Concept: ${post.concept_used}`);
-    });
 
     return {
       linkedinOutput,
@@ -262,7 +349,8 @@ export async function searchWhitepaperForLinkedIn(
       query,
       whitepaperNamespace: whitepaperConfig.namespace,
       indexName: whitepaperConfig.indexName,
-      topK: 10,
+      // ORIGINAL CODE (BACKED UP): topK: 10,
+      topK: 5, // Reduced for faster testing
       topN: 5,
     });
 

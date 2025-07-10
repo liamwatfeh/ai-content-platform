@@ -161,7 +161,8 @@ ${researchQueriesParser.getFormatInstructions()}`;
     console.log("🔄 Starting deep research process...");
 
     let totalSearches = 0;
-    const MAX_SEARCHES = 12; // Optimized for comprehensive research without truncation
+    // ORIGINAL CODE (BACKED UP): const MAX_SEARCHES = 12; // Optimized for comprehensive research without truncation
+    const MAX_SEARCHES = 3; // Reduced for faster testing
 
     while (totalSearches < MAX_SEARCHES && currentQueries.length > 0) {
       for (const query of currentQueries) {
@@ -176,7 +177,8 @@ ${researchQueriesParser.getFormatInstructions()}`;
             query,
             whitepaperNamespace: whitepaperConfig.namespace,
             indexName: whitepaperConfig.indexName,
-            topK: 10,
+            // ORIGINAL CODE (BACKED UP): topK: 10,
+            topK: 5, // Reduced for faster testing
             topN: 5,
           });
 

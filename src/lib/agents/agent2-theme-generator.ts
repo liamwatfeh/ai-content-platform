@@ -211,7 +211,8 @@ ${state.previousThemes?.map((theme: Theme) => `- ${theme.title}: ${theme.descrip
     console.log("🔄 Starting iterative search process...");
 
     let totalSearches = 0;
-    const MAX_SEARCHES = 12;
+    // ORIGINAL CODE (BACKED UP): const MAX_SEARCHES = 12;
+    const MAX_SEARCHES = 3; // Reduced for faster testing
 
     while (totalSearches < MAX_SEARCHES && currentQueries.length > 0) {
       for (const query of currentQueries) {
