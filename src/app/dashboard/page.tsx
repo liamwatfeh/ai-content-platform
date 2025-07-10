@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { PlusIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import Sidebar from "@/components/Sidebar";
-import DesignShowcase from "@/components/DesignShowcase";
 import DashboardCard from "@/components/DashboardCard";
 import StatBar from "@/components/StatBar";
 import QuickActions from "@/components/QuickActions";
@@ -32,7 +32,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDesignSystem, setShowDesignSystem] = useState(false);
 
   // Load dashboard data on mount
   useEffect(() => {
@@ -102,28 +101,6 @@ export default function DashboardPage() {
     );
   }
 
-  if (showDesignSystem) {
-    return (
-      <div className="min-h-screen bg-[#f6f7ff]">
-        <Sidebar />
-        <div className="lg:pl-72">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-h1 text-brilliant-blue">Design System</h1>
-              <button
-                onClick={() => setShowDesignSystem(false)}
-                className="btn btn-secondary"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-            <DesignShowcase />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const hasWhitepapers = (stats?.whitepapers || 0) > 0;
 
   return (
@@ -143,16 +120,33 @@ export default function DashboardPage() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-display text-gray-900 mb-6"
+            className="text-display text-gray-900 mb-4"
           >
             Welcome to{" "}
             <span className="text-brilliant-blue">Content Brain</span>
           </motion.h1>
 
+          {/* BrilliantNoise Branding */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center justify-center gap-2 mb-8"
+          >
+            <span className="text-lg text-gray-600 font-archivo">By</span>
+            <div className="relative">
+              <img
+                src="/bn-blue.png"
+                alt="BrilliantNoise"
+                className="h-12 w-auto"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
             className="mb-8"
           >
             <Link href="/whitepapers">
@@ -170,7 +164,7 @@ export default function DashboardPage() {
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.7 }}
             className="text-body-lg text-gray-600"
           >
             You've generated{" "}
@@ -216,18 +210,15 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.2 }}
         >
-          <ActivityFeed activities={recentActivities} />
+          <ActivityFeed
+            activities={recentActivities}
+            hasWhitepapers={hasWhitepapers}
+          />
         </motion.div>
 
         {/* Debug Controls */}
         <div className="mt-16 pt-8 border-t border-gray-200">
           <div className="flex gap-4 justify-center">
-            <button
-              onClick={() => setShowDesignSystem(true)}
-              className="btn btn-secondary"
-            >
-              View Design System
-            </button>
             <button onClick={loadDashboardData} className="btn btn-secondary">
               Refresh Data
             </button>
