@@ -3,7 +3,6 @@
 // Purpose: Draft 1-3 articles using Economist style guide and research from Agent 3
 
 import { ChatAnthropic } from "@langchain/anthropic";
-import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import type {
   BasicWorkflowState,
   ArticleOutput,
@@ -35,9 +34,7 @@ const baseLlm = new ChatAnthropic({
 // Bind Pinecone search tool for autonomous calling
 const llm = baseLlm.bindTools([pineconeSearchTool]);
 
-// Create output parser for article generation
-const articleOutputParser =
-  StructuredOutputParser.fromZodSchema(ArticleOutputSchema);
+// Note: Using withStructuredOutput directly with ArticleOutputSchema for guaranteed JSON
 
 export async function articleWriterAgent(
   state: BasicWorkflowState
@@ -143,9 +140,7 @@ ${researchDossier.suggestedConcepts
   .join("\n\n")}
 
 Articles to generate: ${articlesCount}
-CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}
-
-${articleOutputParser.getFormatInstructions()}`;
+CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}`;
 
     console.log("🎯 Generating articles with guaranteed structured output...");
 
@@ -247,9 +242,7 @@ Make 1-3 focused searches to gather compelling evidence for analytical articles.
     const contentPrompt = `${articlePrompt}${researchResults}`;
 
     // Use withStructuredOutput for guaranteed JSON - no parsing needed!
-    const structuredLlm = baseLlm.withStructuredOutput(
-      articleOutputParser.schema
-    );
+    const structuredLlm = baseLlm.withStructuredOutput(ArticleOutputSchema);
 
     const articleOutput = await structuredLlm.invoke([
       {

@@ -19,6 +19,7 @@ import {
   FunnelIcon,
 } from "@heroicons/react/24/outline";
 import PDFThumbnail from "@/components/PDFThumbnail";
+import Sidebar from "@/components/Sidebar";
 
 // Updated Types to match backend API
 interface Whitepaper {
@@ -423,180 +424,104 @@ export default function GenerateContentPage() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 flex z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        >
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-            <div className="absolute top-0 right-0 -mr-12 pt-2">
-              <button
-                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <XMarkIcon className="h-6 w-6 text-white" />
-              </button>
-            </div>
-            <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-              <div className="flex-shrink-0 flex items-center px-4">
-                <h1 className="text-xl font-bold text-gray-900">
-                  ContentFlow AI
-                </h1>
-              </div>
-              <nav className="mt-5 flex-1 px-2 space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        item.current
-                          ? "bg-blue-100 text-blue-900"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`}
-                    >
-                      <Icon className="mr-3 h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex md:flex-shrink-0">
-        <div className="flex flex-col w-64">
-          <div className="flex flex-col h-0 flex-1 border-r border-gray-200 bg-white">
-            <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <div className="flex items-center flex-shrink-0 px-4">
-                <h1 className="text-xl font-bold text-gray-900">
-                  ContentFlow AI
-                </h1>
-              </div>
-              <nav className="mt-5 flex-1 px-2 space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        item.current
-                          ? "bg-blue-100 text-blue-900"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`}
-                    >
-                      <Icon className="mr-3 h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Sidebar */}
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main content */}
       <div className="flex flex-col w-0 flex-1 overflow-hidden">
-        {/* Top bar */}
-        <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
-          <button
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Bars3Icon className="h-6 w-6" />
-          </button>
-        </div>
+        {/* Page content */}
+        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+          {/* Top bar */}
+          <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
+            <button
+              className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Bars3Icon className="h-6 w-6" />
+            </button>
+          </div>
 
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Generate Content
-              </h1>
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-16">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Generate Content
+                </h1>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Step Indicator */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <nav aria-label="Progress">
-              <ol className="flex items-center justify-center space-x-8">
-                {steps.map((step, stepIdx) => (
-                  <li key={step.name} className="flex items-center">
-                    <div className="flex items-center">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-                          step.completed
-                            ? "bg-blue-600 text-white"
-                            : currentStep === step.number
-                              ? "bg-blue-100 text-blue-600 border-2 border-blue-600"
-                              : "bg-gray-100 text-gray-400"
-                        }`}
-                      >
-                        {step.completed ? (
-                          <CheckCircleIcon className="h-6 w-6" />
-                        ) : (
-                          step.number
-                        )}
+          {/* Step Indicator */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <nav aria-label="Progress">
+                <ol className="flex items-center justify-center space-x-8">
+                  {steps.map((step, stepIdx) => (
+                    <li key={step.name} className="flex items-center">
+                      <div className="flex items-center">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                            step.completed
+                              ? "bg-blue-600 text-white"
+                              : currentStep === step.number
+                                ? "bg-blue-100 text-blue-600 border-2 border-blue-600"
+                                : "bg-gray-100 text-gray-400"
+                          }`}
+                        >
+                          {step.completed ? (
+                            <CheckCircleIcon className="h-6 w-6" />
+                          ) : (
+                            step.number
+                          )}
+                        </div>
+                        <span
+                          className={`ml-3 text-sm font-medium ${
+                            step.completed || currentStep === step.number
+                              ? "text-gray-900"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {step.name}
+                        </span>
                       </div>
-                      <span
-                        className={`ml-3 text-sm font-medium ${
-                          step.completed || currentStep === step.number
-                            ? "text-gray-900"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {step.name}
-                      </span>
-                    </div>
-                    {stepIdx !== steps.length - 1 && (
-                      <ChevronRightIcon className="h-5 w-5 text-gray-300 ml-8" />
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </nav>
+                      {stepIdx !== steps.length - 1 && (
+                        <ChevronRightIcon className="h-5 w-5 text-gray-300 ml-8" />
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            </div>
           </div>
-        </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border-b border-red-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <XMarkIcon className="h-5 w-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
-                </div>
-                <div className="ml-auto pl-3">
-                  <div className="-mx-1.5 -my-1.5">
-                    <button
-                      onClick={() => setError(null)}
-                      className="inline-flex bg-red-50 rounded-md p-1.5 text-red-500 hover:bg-red-100"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border-b border-red-200">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <XMarkIcon className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <div className="-mx-1.5 -my-1.5">
+                      <button
+                        onClick={() => setError(null)}
+                        className="inline-flex bg-red-50 rounded-md p-1.5 text-red-500 hover:bg-red-100"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">
+          {/* Main Content */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Step 1: Whitepaper Selection */}
             {currentStep === 1 && (
@@ -1330,7 +1255,7 @@ export default function GenerateContentPage() {
               </div>
             )}
           </div>
-        </div>
+        </main>
 
         {/* Navigation Footer */}
         <div className="bg-white border-t border-gray-200 px-4 py-4 sm:px-6">

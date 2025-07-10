@@ -3,7 +3,6 @@
 // Purpose: Draft LinkedIn posts based on research and theme
 
 import { ChatAnthropic } from "@langchain/anthropic";
-import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import type {
   BasicWorkflowState,
   LinkedInOutput,
@@ -35,9 +34,7 @@ const baseLlm = new ChatAnthropic({
 // Bind Pinecone search tool for autonomous calling
 const llm = baseLlm.bindTools([pineconeSearchTool]);
 
-// Create output parser for LinkedIn post generation
-const linkedinOutputParser =
-  StructuredOutputParser.fromZodSchema(LinkedInOutputSchema);
+// Note: Using withStructuredOutput directly with LinkedInOutputSchema for guaranteed JSON
 
 export async function linkedinWriterAgent(
   state: BasicWorkflowState
@@ -151,7 +148,7 @@ ${researchDossier.suggestedConcepts
 LinkedIn posts to generate: ${linkedinPostsCount}
 CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}
 
-${linkedinOutputParser.getFormatInstructions()}`;
+`;
 
     console.log(
       "🎯 Generating LinkedIn posts with guaranteed structured output..."
@@ -257,9 +254,7 @@ Make 1-3 focused searches to gather engaging evidence for LinkedIn posts.`;
     const contentPrompt = `${linkedinPrompt}${researchResults}`;
 
     // Use withStructuredOutput for guaranteed JSON - no parsing needed!
-    const structuredLlm = baseLlm.withStructuredOutput(
-      linkedinOutputParser.schema
-    );
+    const structuredLlm = baseLlm.withStructuredOutput(LinkedInOutputSchema);
 
     const linkedinOutput = await structuredLlm.invoke([
       {

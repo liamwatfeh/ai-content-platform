@@ -18,6 +18,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PDFThumbnail from "@/components/PDFThumbnail";
 import NewBucketModal from "@/components/NewBucketModal";
+import Sidebar from "@/components/Sidebar";
 
 // Types
 interface ReferenceBucket {
@@ -478,547 +479,343 @@ export default function WhitepapersPage() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 flex z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        >
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-            <div className="absolute top-0 right-0 -mr-12 pt-2">
-              <button
-                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <XMarkIcon className="h-6 w-6 text-white" />
-              </button>
-            </div>
-            {/* Mobile sidebar content */}
-            <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-              <div className="flex-shrink-0 flex items-center px-4">
-                <h1 className="text-xl font-bold text-gray-900">
-                  ContentFlow AI
-                </h1>
-              </div>
-              <nav className="mt-5 flex-1 px-2 space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        item.current
-                          ? "bg-blue-100 text-blue-900"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`}
-                    >
-                      <Icon className="mr-3 h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex md:flex-shrink-0">
-        <div className="flex flex-col w-64">
-          <div className="flex flex-col h-0 flex-1 border-r border-gray-200 bg-white">
-            <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <div className="flex items-center flex-shrink-0 px-4">
-                <h1 className="text-xl font-bold text-gray-900">
-                  ContentFlow AI
-                </h1>
-              </div>
-              <nav className="mt-5 flex-1 px-2 space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        item.current
-                          ? "bg-blue-100 text-blue-900"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`}
-                    >
-                      <Icon className="mr-3 h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Sidebar */}
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main content */}
       <div className="flex flex-col w-0 flex-1 overflow-hidden">
-        {/* Top bar */}
-        <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
-          <button
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Bars3Icon className="h-6 w-6" />
-          </button>
-        </div>
-
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Panel - Reference Buckets */}
-          <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Buckets</h2>
-                <button
-                  onClick={() => setShowCreateForm(!showCreateForm)}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
-                >
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  New
-                </button>
-              </div>
-              <p className="mt-1 text-sm text-gray-500">
-                Group your Whitepaper into Indexes
-              </p>
-            </div>
-
-            {/* Create Bucket Modal */}
-            <NewBucketModal
-              isOpen={showCreateForm}
-              onClose={() => setShowCreateForm(false)}
-              onCreateBucket={handleCreateBucket}
-              createLoading={createLoading}
-            />
-
-            {/* Buckets List */}
-            <div className="flex-1 overflow-y-auto">
-              {buckets.length === 0 ? (
-                <div className="p-8 text-center">
-                  <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <DocumentTextIcon className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">
-                    No reference buckets yet
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Create your first bucket to organize your whitepapers
-                  </p>
-                  <button
-                    onClick={() => setShowCreateForm(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Create Bucket
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2">
-                  {buckets.map((bucket) => (
-                    <div
-                      key={bucket.id}
-                      onClick={() => setSelectedBucket(bucket)}
-                      className={`p-3 rounded-lg cursor-pointer mb-2 transition-colors relative ${
-                        selectedBucket?.id === bucket.id
-                          ? "bg-blue-50 border-2 border-blue-200"
-                          : "bg-white border-2 border-transparent hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium text-gray-900 text-sm">
-                          {bucket.name}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {getBucketStatusBadge(bucket.status)}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (
-                                confirm(
-                                  `Are you sure you want to delete "${bucket.name}"?\n\nThis will:\n• Delete the Pinecone index: ${bucket.pinecone_index_name}\n• Delete all whitepapers in this bucket\n• Delete all associated content generations\n\nThis action cannot be undone.`
-                                )
-                              ) {
-                                handleDeleteBucket(bucket.id, bucket.name);
-                              }
-                            }}
-                            disabled={deletingBucketIds.has(bucket.id)}
-                            className="inline-flex items-center p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Delete bucket"
-                          >
-                            {deletingBucketIds.has(bucket.id) ? (
-                              <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <TrashIcon className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      {bucket.description && (
-                        <p className="text-xs text-gray-500 mb-2">
-                          {bucket.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between text-xs text-gray-400">
-                        <span>{bucket.whitepaper_count} whitepapers</span>
-                        <span>{formatDate(bucket.created_at)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        {/* Page content */}
+        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+          {/* Top bar */}
+          <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
+            <button
+              className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Bars3Icon className="h-6 w-6" />
+            </button>
           </div>
 
-          {/* Right Panel - Whitepapers */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {!selectedBucket ? (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <DocumentTextIcon className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Select a Reference Bucket
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Choose a bucket from the left panel to view its whitepapers
-                  </p>
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Panel - Reference Buckets */}
+            <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">Buckets</h2>
+                  <button
+                    onClick={() => setShowCreateForm(!showCreateForm)}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    New
+                  </button>
                 </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  Group your Whitepaper into Indexes
+                </p>
               </div>
-            ) : (
-              <>
-                {/* Header */}
-                <div className="p-6 border-b border-gray-200 bg-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h1 className="text-2xl font-bold text-gray-900">
-                        {selectedBucket.name}
-                      </h1>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {selectedBucket.description || "No description"}
-                      </p>
+
+              {/* Create Bucket Modal */}
+              <NewBucketModal
+                isOpen={showCreateForm}
+                onClose={() => setShowCreateForm(false)}
+                onCreateBucket={handleCreateBucket}
+                createLoading={createLoading}
+              />
+
+              {/* Buckets List */}
+              <div className="flex-1 overflow-y-auto">
+                {buckets.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <DocumentTextIcon className="h-6 w-6 text-gray-400" />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Are you sure you want to delete "${selectedBucket.name}"?\n\nThis will:\n• Delete the Pinecone index: ${selectedBucket.pinecone_index_name}\n• Delete all whitepapers in this bucket\n• Delete all associated content generations\n\nThis action cannot be undone.`
-                            )
-                          ) {
-                            handleDeleteBucket(
-                              selectedBucket.id,
-                              selectedBucket.name
-                            );
-                          }
-                        }}
-                        disabled={deletingBucketIds.has(selectedBucket.id)}
-                        className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {deletingBucketIds.has(selectedBucket.id) ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
-                            Deleting...
-                          </>
-                        ) : (
-                          <>
-                            <TrashIcon className="h-4 w-4 mr-2" />
-                            Delete Bucket
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setShowUploadZone(true)}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                      >
-                        <CloudArrowUpIcon className="h-4 w-4 mr-2" />
-                        Upload Whitepapers
-                      </button>
-                    </div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">
+                      No reference buckets yet
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Create your first bucket to organize your whitepapers
+                    </p>
+                    <button
+                      onClick={() => setShowCreateForm(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Create Bucket
+                    </button>
                   </div>
-                </div>
-
-                {/* Upload Zone Modal */}
-                {showUploadZone && (
-                  <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                      <div className="mt-3">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            Upload Whitepapers
+                ) : (
+                  <div className="p-2">
+                    {buckets.map((bucket) => (
+                      <div
+                        key={bucket.id}
+                        onClick={() => setSelectedBucket(bucket)}
+                        className={`p-3 rounded-lg cursor-pointer mb-2 transition-colors relative ${
+                          selectedBucket?.id === bucket.id
+                            ? "bg-blue-50 border-2 border-blue-200"
+                            : "bg-white border-2 border-transparent hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-medium text-gray-900 text-sm">
+                            {bucket.name}
                           </h3>
-                          <button
-                            onClick={() => setShowUploadZone(false)}
-                            className="text-gray-400 hover:text-gray-500"
-                          >
-                            <XMarkIcon className="h-6 w-6" />
-                          </button>
-                        </div>
-
-                        <div
-                          onDrop={handleDrop}
-                          onDragOver={handleDragOver}
-                          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
-                        >
-                          <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
-                          <div className="mt-4">
-                            <label
-                              htmlFor="file-upload"
-                              className="cursor-pointer"
+                          <div className="flex items-center gap-2">
+                            {getBucketStatusBadge(bucket.status)}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (
+                                  confirm(
+                                    `Are you sure you want to delete "${bucket.name}"?\n\nThis will:\n• Delete the Pinecone index: ${bucket.pinecone_index_name}\n• Delete all whitepapers in this bucket\n• Delete all associated content generations\n\nThis action cannot be undone.`
+                                  )
+                                ) {
+                                  handleDeleteBucket(bucket.id, bucket.name);
+                                }
+                              }}
+                              disabled={deletingBucketIds.has(bucket.id)}
+                              className="inline-flex items-center p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete bucket"
                             >
-                              <span className="mt-2 block text-sm font-medium text-gray-900">
-                                Drop files here or click to browse
-                              </span>
-                              <input
-                                id="file-upload"
-                                name="file-upload"
-                                type="file"
-                                multiple
-                                accept=".pdf,.docx"
-                                className="sr-only"
-                                onChange={(e) => {
-                                  if (e.target.files) {
-                                    handleFileUpload(e.target.files);
-                                  }
-                                }}
-                              />
-                            </label>
-                            <p className="mt-1 text-xs text-gray-500">
-                              PDF and DOCX files up to 50MB each
-                            </p>
+                              {deletingBucketIds.has(bucket.id) ? (
+                                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <TrashIcon className="w-4 h-4" />
+                              )}
+                            </button>
                           </div>
                         </div>
-
-                        {uploading && (
-                          <div className="mt-4 p-3 bg-blue-50 rounded-md">
-                            <div className="flex items-center">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-                              <span className="text-sm text-blue-700">
-                                Uploading files...
-                              </span>
-                            </div>
-                          </div>
+                        {bucket.description && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            {bucket.description}
+                          </p>
                         )}
+                        <div className="flex items-center justify-between text-xs text-gray-400">
+                          <span>{bucket.whitepaper_count} whitepapers</span>
+                          <span>{formatDate(bucket.created_at)}</span>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 )}
+              </div>
+            </div>
 
-                {/* Whitepapers List */}
-                <div className="flex-1 overflow-y-auto p-6">
-                  {whitepapers.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <DocumentTextIcon className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        No whitepapers in this bucket
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-6">
-                        Upload your first PDF or DOCX whitepaper to get started
-                      </p>
-                      <button
-                        onClick={() => setShowUploadZone(true)}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                      >
-                        <CloudArrowUpIcon className="h-4 w-4 mr-2" />
-                        Upload Whitepaper
-                      </button>
+            {/* Right Panel - Whitepapers */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {!selectedBucket ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <DocumentTextIcon className="h-8 w-8 text-gray-400" />
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {whitepapers.map((whitepaper) => (
-                        <div
-                          key={whitepaper.id}
-                          className="relative w-full bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200 md:min-h-[200px]"
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Select a Reference Bucket
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Choose a bucket from the left panel to view its
+                      whitepapers
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Header */}
+                  <div className="p-6 border-b border-gray-200 bg-white">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                          {selectedBucket.name}
+                        </h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {selectedBucket.description || "No description"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Are you sure you want to delete "${selectedBucket.name}"?\n\nThis will:\n• Delete the Pinecone index: ${selectedBucket.pinecone_index_name}\n• Delete all whitepapers in this bucket\n• Delete all associated content generations\n\nThis action cannot be undone.`
+                              )
+                            ) {
+                              handleDeleteBucket(
+                                selectedBucket.id,
+                                selectedBucket.name
+                              );
+                            }
+                          }}
+                          disabled={deletingBucketIds.has(selectedBucket.id)}
+                          className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {/* Desktop Layout - Hidden on Mobile */}
-                          <div className="hidden md:block">
-                            {/* PDF Preview Section - Left Side */}
-                            <div className="absolute left-6 top-6">
-                              <PDFThumbnail
-                                fileUrl={whitepaper.file_url}
-                                width={110}
-                                height={145}
-                                className="lg:w-[120px] lg:h-[160px]"
-                              />
-                            </div>
+                          {deletingBucketIds.has(selectedBucket.id) ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <TrashIcon className="h-4 w-4 mr-2" />
+                              Delete Bucket
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setShowUploadZone(true)}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CloudArrowUpIcon className="h-4 w-4 mr-2" />
+                          Upload Whitepapers
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
-                            {/* Status Pill - Top Right Corner */}
-                            <div className="absolute top-6 right-6">
-                              {getStatusBadge(whitepaper.processing_status)}
-                            </div>
+                  {/* Upload Zone Modal */}
+                  {showUploadZone && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              Upload Whitepapers
+                            </h3>
+                            <button
+                              onClick={() => setShowUploadZone(false)}
+                              className="text-gray-400 hover:text-gray-500"
+                            >
+                              <XMarkIcon className="h-6 w-6" />
+                            </button>
+                          </div>
 
-                            {/* Main Content Area - Center-Left */}
-                            <div className="ml-32 lg:ml-36 mr-16">
-                              {/* Title and Filename Section */}
-                              <div className="mb-4">
-                                <h3 className="text-xl font-semibold text-gray-900 leading-tight mb-1">
-                                  {whitepaper.title}
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                  {whitepaper.filename}
-                                </p>
-                              </div>
-
-                              {/* Metadata Section */}
-                              <div className="flex flex-col space-y-2">
-                                <div className="text-sm text-gray-600">
-                                  Uploaded: {formatDate(whitepaper.upload_date)}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  Size:{" "}
-                                  {formatFileSize(whitepaper.file_size_bytes)}
-                                </div>
-                                {whitepaper.chunk_count > 0 && (
-                                  <div className="text-sm text-gray-600">
-                                    Chunks: {whitepaper.chunk_count}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Action Buttons - Bottom Right */}
-                            <div className="absolute bottom-6 right-6 flex items-center space-x-3">
-                              {/* Delete Button */}
-                              <button
-                                onClick={() => {
-                                  if (
-                                    confirm(
-                                      "Are you sure you want to delete this whitepaper? This will permanently remove it from storage, database, and search index."
-                                    )
-                                  ) {
-                                    handleDeleteWhitepapers([whitepaper.id]);
-                                  }
-                                }}
-                                disabled={deletingIds.has(whitepaper.id)}
-                                className="inline-flex items-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
+                          <div
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+                          >
+                            <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                            <div className="mt-4">
+                              <label
+                                htmlFor="file-upload"
+                                className="cursor-pointer"
                               >
-                                {deletingIds.has(whitepaper.id) ? (
-                                  <>
-                                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-1"></div>
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <TrashIcon className="w-4 h-4 mr-1" />
-                                    Delete
-                                  </>
-                                )}
-                              </button>
-
-                              {/* Generate Content Button - Only show when completed */}
-                              {whitepaper.processing_status === "completed" && (
-                                <Link
-                                  href={`/generate-content?whitepaper=${whitepaper.id}`}
-                                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
-                                >
-                                  <SparklesIcon className="w-4 h-4 mr-1" />
-                                  Generate Content
-                                </Link>
-                              )}
-
-                              {/* Retry Button - Only show when failed */}
-                              {whitepaper.processing_status === "failed" && (
-                                <button
-                                  onClick={() =>
-                                    handleRetryProcessing([whitepaper.id])
-                                  }
-                                  disabled={retryingIds.has(whitepaper.id)}
-                                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
-                                >
-                                  {retryingIds.has(whitepaper.id) ? (
-                                    <>
-                                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
-                                      Retrying...
-                                    </>
-                                  ) : (
-                                    "Retry"
-                                  )}
-                                </button>
-                              )}
+                                <span className="mt-2 block text-sm font-medium text-gray-900">
+                                  Drop files here or click to browse
+                                </span>
+                                <input
+                                  id="file-upload"
+                                  name="file-upload"
+                                  type="file"
+                                  multiple
+                                  accept=".pdf,.docx"
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    if (e.target.files) {
+                                      handleFileUpload(e.target.files);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <p className="mt-1 text-xs text-gray-500">
+                                PDF and DOCX files up to 50MB each
+                              </p>
                             </div>
                           </div>
 
-                          {/* Mobile Layout - Only visible on mobile */}
-                          <div className="md:hidden">
-                            {/* Mobile layout - Stack vertically */}
-                            <div className="flex flex-col items-center">
-                              {/* PDF Preview - Centered at top, smaller */}
-                              <div className="mb-4">
+                          {uploading && (
+                            <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                              <div className="flex items-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                                <span className="text-sm text-blue-700">
+                                  Uploading files...
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Whitepapers List */}
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {whitepapers.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <DocumentTextIcon className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          No whitepapers in this bucket
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                          Upload your first PDF or DOCX whitepaper to get
+                          started
+                        </p>
+                        <button
+                          onClick={() => setShowUploadZone(true)}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CloudArrowUpIcon className="h-4 w-4 mr-2" />
+                          Upload Whitepaper
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {whitepapers.map((whitepaper) => (
+                          <div
+                            key={whitepaper.id}
+                            className="relative w-full bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200 md:min-h-[200px]"
+                          >
+                            {/* Desktop Layout - Hidden on Mobile */}
+                            <div className="hidden md:block">
+                              {/* PDF Preview Section - Left Side */}
+                              <div className="absolute left-6 top-6">
                                 <PDFThumbnail
                                   fileUrl={whitepaper.file_url}
-                                  width={100}
-                                  height={130}
+                                  width={110}
+                                  height={145}
+                                  className="lg:w-[120px] lg:h-[160px]"
                                 />
                               </div>
 
-                              {/* Content - Full width */}
-                              <div className="w-full text-center mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                                  {whitepaper.title}
-                                </h3>
-                                <p className="text-sm text-gray-500 mb-3">
-                                  {whitepaper.filename}
-                                </p>
+                              {/* Status Pill - Top Right Corner */}
+                              <div className="absolute top-6 right-6">
+                                {getStatusBadge(whitepaper.processing_status)}
+                              </div>
 
-                                <div className="space-y-1 text-sm text-gray-600">
-                                  <div>
+                              {/* Main Content Area - Center-Left */}
+                              <div className="ml-32 lg:ml-36 mr-16">
+                                {/* Title and Filename Section */}
+                                <div className="mb-4">
+                                  <h3 className="text-xl font-semibold text-gray-900 leading-tight mb-1">
+                                    {whitepaper.title}
+                                  </h3>
+                                  <p className="text-sm text-gray-500">
+                                    {whitepaper.filename}
+                                  </p>
+                                </div>
+
+                                {/* Metadata Section */}
+                                <div className="flex flex-col space-y-2">
+                                  <div className="text-sm text-gray-600">
                                     Uploaded:{" "}
                                     {formatDate(whitepaper.upload_date)}
                                   </div>
-                                  <div>
+                                  <div className="text-sm text-gray-600">
                                     Size:{" "}
                                     {formatFileSize(whitepaper.file_size_bytes)}
                                   </div>
                                   {whitepaper.chunk_count > 0 && (
-                                    <div>Chunks: {whitepaper.chunk_count}</div>
+                                    <div className="text-sm text-gray-600">
+                                      Chunks: {whitepaper.chunk_count}
+                                    </div>
                                   )}
                                 </div>
                               </div>
 
-                              {/* Status - Centered */}
-                              <div className="mb-4">
-                                {getStatusBadge(whitepaper.processing_status)}
-                              </div>
-
-                              {/* Buttons - Full width, stacked */}
-                              <div className="w-full space-y-2">
-                                {whitepaper.processing_status ===
-                                  "completed" && (
-                                  <Link
-                                    href={`/generate-content?whitepaper=${whitepaper.id}`}
-                                    className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium"
-                                  >
-                                    <SparklesIcon className="w-4 h-4 mr-1" />
-                                    Generate Content
-                                  </Link>
-                                )}
-                                {whitepaper.processing_status === "failed" && (
-                                  <button
-                                    onClick={() =>
-                                      handleRetryProcessing([whitepaper.id])
-                                    }
-                                    disabled={retryingIds.has(whitepaper.id)}
-                                    className="w-full inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium"
-                                  >
-                                    {retryingIds.has(whitepaper.id) ? (
-                                      <>
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
-                                        Retrying...
-                                      </>
-                                    ) : (
-                                      "Retry"
-                                    )}
-                                  </button>
-                                )}
+                              {/* Action Buttons - Bottom Right */}
+                              <div className="absolute bottom-6 right-6 flex items-center space-x-3">
+                                {/* Delete Button */}
                                 <button
                                   onClick={() => {
                                     if (
@@ -1030,7 +827,7 @@ export default function WhitepapersPage() {
                                     }
                                   }}
                                   disabled={deletingIds.has(whitepaper.id)}
-                                  className="w-full inline-flex items-center justify-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium"
+                                  className="inline-flex items-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
                                 >
                                   {deletingIds.has(whitepaper.id) ? (
                                     <>
@@ -1044,18 +841,158 @@ export default function WhitepapersPage() {
                                     </>
                                   )}
                                 </button>
+
+                                {/* Generate Content Button - Only show when completed */}
+                                {whitepaper.processing_status ===
+                                  "completed" && (
+                                  <Link
+                                    href={`/generate-content?whitepaper=${whitepaper.id}`}
+                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
+                                  >
+                                    <SparklesIcon className="w-4 h-4 mr-1" />
+                                    Generate Content
+                                  </Link>
+                                )}
+
+                                {/* Retry Button - Only show when failed */}
+                                {whitepaper.processing_status === "failed" && (
+                                  <button
+                                    onClick={() =>
+                                      handleRetryProcessing([whitepaper.id])
+                                    }
+                                    disabled={retryingIds.has(whitepaper.id)}
+                                    className="inline-flex items-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
+                                  >
+                                    {retryingIds.has(whitepaper.id) ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                                        Retrying...
+                                      </>
+                                    ) : (
+                                      "Retry"
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Mobile Layout - Only visible on mobile */}
+                            <div className="md:hidden">
+                              {/* Mobile layout - Stack vertically */}
+                              <div className="flex flex-col items-center">
+                                {/* PDF Preview - Centered at top, smaller */}
+                                <div className="mb-4">
+                                  <PDFThumbnail
+                                    fileUrl={whitepaper.file_url}
+                                    width={100}
+                                    height={130}
+                                  />
+                                </div>
+
+                                {/* Content - Full width */}
+                                <div className="w-full text-center mb-4">
+                                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                                    {whitepaper.title}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mb-3">
+                                    {whitepaper.filename}
+                                  </p>
+
+                                  <div className="space-y-1 text-sm text-gray-600">
+                                    <div>
+                                      Uploaded:{" "}
+                                      {formatDate(whitepaper.upload_date)}
+                                    </div>
+                                    <div>
+                                      Size:{" "}
+                                      {formatFileSize(
+                                        whitepaper.file_size_bytes
+                                      )}
+                                    </div>
+                                    {whitepaper.chunk_count > 0 && (
+                                      <div>
+                                        Chunks: {whitepaper.chunk_count}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Status - Centered */}
+                                <div className="mb-4">
+                                  {getStatusBadge(whitepaper.processing_status)}
+                                </div>
+
+                                {/* Buttons - Full width, stacked */}
+                                <div className="w-full space-y-2">
+                                  {whitepaper.processing_status ===
+                                    "completed" && (
+                                    <Link
+                                      href={`/generate-content?whitepaper=${whitepaper.id}`}
+                                      className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium"
+                                    >
+                                      <SparklesIcon className="w-4 h-4 mr-1" />
+                                      Generate Content
+                                    </Link>
+                                  )}
+                                  {whitepaper.processing_status ===
+                                    "failed" && (
+                                    <button
+                                      onClick={() =>
+                                        handleRetryProcessing([whitepaper.id])
+                                      }
+                                      disabled={retryingIds.has(whitepaper.id)}
+                                      className="w-full inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium"
+                                    >
+                                      {retryingIds.has(whitepaper.id) ? (
+                                        <>
+                                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                                          Retrying...
+                                        </>
+                                      ) : (
+                                        "Retry"
+                                      )}
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      if (
+                                        confirm(
+                                          "Are you sure you want to delete this whitepaper? This will permanently remove it from storage, database, and search index."
+                                        )
+                                      ) {
+                                        handleDeleteWhitepapers([
+                                          whitepaper.id,
+                                        ]);
+                                      }
+                                    }}
+                                    disabled={deletingIds.has(whitepaper.id)}
+                                    className="w-full inline-flex items-center justify-center px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-sm font-medium"
+                                  >
+                                    {deletingIds.has(whitepaper.id) ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-1"></div>
+                                        Deleting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <TrashIcon className="w-4 h-4 mr-1" />
+                                        Delete
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

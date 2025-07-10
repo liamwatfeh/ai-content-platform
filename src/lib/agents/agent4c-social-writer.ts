@@ -3,7 +3,6 @@
 // Purpose: Draft short, punchy social media posts based on research and theme
 
 import { ChatAnthropic } from "@langchain/anthropic";
-import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import type {
   BasicWorkflowState,
   SocialOutput,
@@ -35,9 +34,7 @@ const baseLlm = new ChatAnthropic({
 // Bind Pinecone search tool for autonomous calling
 const llm = baseLlm.bindTools([pineconeSearchTool]);
 
-// Create output parser for social media post generation
-const socialOutputParser =
-  StructuredOutputParser.fromZodSchema(SocialOutputSchema);
+// Note: Using withStructuredOutput directly with SocialOutputSchema for guaranteed JSON
 
 export async function socialWriterAgent(
   state: BasicWorkflowState
@@ -149,9 +146,7 @@ ${researchDossier.suggestedConcepts
   .join("\n\n")}
 
 Twitter posts to generate: ${socialPostsCount}
-CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}
-
-${socialOutputParser.getFormatInstructions()}`;
+CTA Type: ${state.ctaType}${state.ctaUrl ? ` (URL: ${state.ctaUrl})` : ""}`;
 
     console.log(
       "🎯 Generating Twitter posts with guaranteed structured output..."
@@ -257,9 +252,7 @@ Make 1-3 focused searches to gather engaging evidence for viral Twitter content.
     const contentPrompt = `${socialPrompt}${researchResults}`;
 
     // Use withStructuredOutput for guaranteed JSON - no parsing needed!
-    const structuredLlm = baseLlm.withStructuredOutput(
-      socialOutputParser.schema
-    );
+    const structuredLlm = baseLlm.withStructuredOutput(SocialOutputSchema);
 
     const socialOutput = await structuredLlm.invoke([
       {

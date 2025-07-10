@@ -223,16 +223,16 @@ ${state.previousThemes?.map((theme: Theme) => `- ${theme.title}: ${theme.descrip
         );
 
         try {
-          const searchResult = await pineconeSearchTool.invoke({
-            query,
-            whitepaperNamespace: whitepaperConfig.namespace,
-            indexName: whitepaperConfig.indexName,
+        const searchResult = await pineconeSearchTool.invoke({
+          query,
+          whitepaperNamespace: whitepaperConfig.namespace,
+          indexName: whitepaperConfig.indexName,
             topK: 5,
-            topN: 5,
-          });
+          topN: 5,
+        });
 
-          const parsedResults = JSON.parse(searchResult);
-          allSearchResults.push(...parsedResults.results);
+        const parsedResults = JSON.parse(searchResult);
+        allSearchResults.push(...parsedResults.results);
 
           // Analyze results and plan next queries
           const analysisPrompt = `Search Query: "${query}"
@@ -270,12 +270,12 @@ ${analysisParser.getFormatInstructions()}`;
             };
           }
 
-          searchExecutionLog.push({
-            query,
-            resultCount: parsedResults.results.length,
+        searchExecutionLog.push({
+          query,
+          resultCount: parsedResults.results.length,
             analysis: analysis.analysis,
             nextQueries: analysis.nextQueries,
-          });
+        });
 
           // Update queries for next iteration
           currentQueries = analysis.nextQueries;
@@ -283,15 +283,15 @@ ${analysisParser.getFormatInstructions()}`;
           totalSearches++;
 
           // Brief pause between searches
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error(`❌ Search failed for "${query}":`, error);
-          searchExecutionLog.push({
-            query,
-            resultCount: 0,
-            analysis: `Search failed: ${error}`,
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`❌ Search failed for "${query}":`, error);
+        searchExecutionLog.push({
+          query,
+          resultCount: 0,
+          analysis: `Search failed: ${error}`,
             nextQueries: [],
-          });
+        });
           totalSearches++;
         }
       }

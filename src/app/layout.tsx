@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import DarkModeToggle from "@/components/DarkModeToggle";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,10 +26,7 @@ export default function RootLayout({
         className={`${inter.variable} font-sans antialiased min-h-screen`}
         suppressHydrationWarning
       >
-        <div className="relative">
-          {children}
-          <DarkModeToggle />
-        </div>
+        <div className="relative">{children}</div>
       </body>
     </html>
   );
