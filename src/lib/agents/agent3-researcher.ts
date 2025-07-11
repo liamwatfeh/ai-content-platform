@@ -297,14 +297,22 @@ ${researchDossierParser.getFormatInstructions()}`;
       {
         role: "system",
         content:
-          "Create a streamlined research dossier with 3 suggested content concepts from whitepaper analysis. Extract 6-8 KEY FINDINGS with confidence levels (high/medium/low). Create exactly 3 SUGGESTED CONCEPTS for drafting agents to choose from. Each concept needs: title, angle, why it works, 3 key evidence points, content direction. Include brief research summary. Follow the JSON schema exactly. Be concise but specific with evidence. Follow the format instructions exactly.",
+          "Create a streamlined research dossier with 3 suggested content concepts from whitepaper analysis. " +
+          "Extract 6-8 KEY FINDINGS with confidence levels (high/medium/low). " +
+          "Create exactly 3 SUGGESTED CONCEPTS for drafting agents to choose from. " +
+          "Each concept needs: title, angle, whyItWorks, 3 keyEvidence items, contentDirection. " +
+          "Include brief research summary. " +
+          "CRITICAL: Return valid JSON only. The suggestedConcepts must be an array of objects, where each object has curly braces {}. " +
+          "Example structure: " +
+          '{"suggestedConcepts": [{"title": "...", "angle": "...", "whyItWorks": "...", "keyEvidence": ["...", "...", "..."], "contentDirection": "..."}, {...}, {...}]} ' +
+          "Follow the JSON schema exactly. Be concise but specific with evidence.",
       },
       { role: "user", content: conceptSynthesisPrompt },
     ]);
 
     console.log("📝 Research dossier received, parsing...");
 
-    // Parse the research dossier
+    // Parse the research dossier with better error handling
     let researchDossier: ResearchDossier;
     try {
       const content = dossierResponse.content as string;
@@ -313,7 +321,7 @@ ${researchDossierParser.getFormatInstructions()}`;
       console.log(content);
       console.log("=".repeat(80));
 
-      // Clean up the content to handle potential truncation
+      // Clean up the content to handle potential truncation and fix JSON issues
       let cleanedContent = content;
 
       // If content is wrapped in markdown code blocks, extract JSON
@@ -348,6 +356,28 @@ ${researchDossierParser.getFormatInstructions()}`;
         } else {
           cleanedContent = content.substring(jsonStart, jsonEnd);
         }
+      }
+
+      // Fix common JSON malformation issues in suggestedConcepts array
+      if (cleanedContent.includes('"suggestedConcepts": [')) {
+        // Fix missing opening braces in suggestedConcepts array
+        cleanedContent = cleanedContent.replace(
+          /"suggestedConcepts": \[\s*"title":/g,
+          '"suggestedConcepts": [\n    {\n      "title":'
+        );
+
+        // Fix missing opening braces for subsequent objects in array
+        cleanedContent = cleanedContent.replace(
+          /},\s*"title":/g,
+          '},\n    {\n      "title":'
+        );
+
+        // Ensure last object in array is properly closed
+        if (!cleanedContent.includes("}\n  ]")) {
+          cleanedContent = cleanedContent.replace(/"\s*}\s*]/, '"\n    }\n  ]');
+        }
+
+        console.log("🔧 Fixed suggestedConcepts array structure");
       }
 
       researchDossier = await researchDossierParser.parse(cleanedContent);
