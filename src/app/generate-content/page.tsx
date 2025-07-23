@@ -1085,7 +1085,7 @@ export default function GenerateContentPage() {
                                   {/* Metadata */}
                                   <div className="space-y-1.5">
                                     <p className="text-sm text-gray-600 font-archivo truncate">
-                                      📄 {whitepaper.filename}
+                                      {whitepaper.filename}
                                     </p>
                                     <div className="flex items-center gap-4 text-xs text-gray-500 font-archivo">
                                       <span className="flex items-center gap-1">
@@ -1093,7 +1093,6 @@ export default function GenerateContentPage() {
                                         {formatDate(whitepaper.upload_date)}
                                       </span>
                                       <span>
-                                        📊{" "}
                                         {formatFileSize(
                                           whitepaper.file_size_bytes
                                         )}
@@ -1556,7 +1555,7 @@ export default function GenerateContentPage() {
                         {finalResults.article && (
                           <div className="bg-white rounded-lg border border-gray-200 p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                              📰 Articles
+                              Articles
                               {finalResults.edited_content?.article && (
                                 <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                   Edited (Quality:{" "}
@@ -1617,7 +1616,7 @@ export default function GenerateContentPage() {
                         {finalResults.linkedin_posts && (
                           <div className="bg-white rounded-lg border border-gray-200 p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                              💼 LinkedIn Posts
+                              LinkedIn Posts
                               {finalResults.edited_content?.linkedin_posts && (
                                 <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                   Edited (Quality:{" "}
@@ -1660,7 +1659,7 @@ export default function GenerateContentPage() {
                         {finalResults.social_posts && (
                           <div className="bg-white rounded-lg border border-gray-200 p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                              📱 Social Media Posts
+                              Social Media Posts
                               {finalResults.edited_content?.social_posts && (
                                 <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                   Edited (Quality:{" "}
@@ -1707,7 +1706,7 @@ export default function GenerateContentPage() {
                         {finalResults.research_dossier && (
                           <div className="bg-white rounded-lg border border-gray-200 p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4">
-                              🔬 Research Summary
+                              Research Summary
                             </h3>
                             <p className="text-gray-600 mb-4">
                               {finalResults.research_dossier.researchSummary}

@@ -87,9 +87,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Bucket created successfully: ${bucket.id}`);
 
+    // 🚀 PHASE 2 FIX: Trigger async Pinecone index creation
+    // This runs in the background and updates bucket status when complete
+    createPineconeIndexAsync(bucket.id, pinecone_index_name);
+
+    console.log(
+      `🔄 Initiated Pinecone index creation for: ${pinecone_index_name}`
+    );
+
     return NextResponse.json({
       success: true,
-      message: "Reference bucket created successfully",
+      message:
+        "Reference bucket created successfully. Pinecone index creation in progress.",
       bucket,
     });
   } catch (error) {
@@ -229,10 +238,13 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Async function to create Pinecone index and update bucket status
+// 🚀 PHASE 2 FIX: Enhanced async function to create Pinecone index and update bucket status
 async function createPineconeIndexAsync(bucketId: string, indexName: string) {
   try {
-    console.log(`Starting Pinecone index creation for bucket ${bucketId}`);
+    console.log(
+      `🔄 [ASYNC] Starting Pinecone index creation for bucket ${bucketId}`
+    );
+    console.log(`📝 [ASYNC] Index name: ${indexName}`);
 
     const result = await createPineconeIndex(indexName);
 
@@ -248,12 +260,12 @@ async function createPineconeIndexAsync(bucketId: string, indexName: string) {
 
       if (error) {
         console.error(
-          `Failed to update bucket ${bucketId} status to active:`,
+          `❌ [ASYNC] Failed to update bucket ${bucketId} status to active:`,
           error
         );
       } else {
         console.log(
-          `Bucket ${bucketId} with Pinecone index ${indexName} created successfully`
+          `✅ [ASYNC] Bucket ${bucketId} with Pinecone index ${indexName} created successfully and marked as active`
         );
       }
     } else {
@@ -268,29 +280,40 @@ async function createPineconeIndexAsync(bucketId: string, indexName: string) {
 
       if (error) {
         console.error(
-          `Failed to update bucket ${bucketId} status to failed:`,
+          `❌ [ASYNC] Failed to update bucket ${bucketId} status to failed:`,
           error
         );
       }
 
       console.error(
-        `Failed to create Pinecone index for bucket ${bucketId}:`,
+        `❌ [ASYNC] Failed to create Pinecone index for bucket ${bucketId}:`,
         result.error
       );
     }
   } catch (error) {
     console.error(
-      `Error in async Pinecone index creation for bucket ${bucketId}:`,
+      `❌ [ASYNC] Unexpected error in Pinecone index creation for bucket ${bucketId}:`,
       error
     );
 
-    // Update bucket status to 'failed'
-    await supabase
-      .from("reference_buckets")
-      .update({
-        status: "failed",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", bucketId);
+    // Update bucket status to 'failed' with error details
+    try {
+      await supabase
+        .from("reference_buckets")
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", bucketId);
+
+      console.log(
+        `🔄 [ASYNC] Marked bucket ${bucketId} as failed due to error`
+      );
+    } catch (updateError) {
+      console.error(
+        `❌ [ASYNC] Failed to update bucket ${bucketId} status to failed:`,
+        updateError
+      );
+    }
   }
 }
