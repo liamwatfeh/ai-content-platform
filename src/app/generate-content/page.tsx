@@ -46,6 +46,7 @@ interface Whitepaper {
 
 // Updated to match backend API format
 interface BriefData {
+  campaignName: string;
   businessContext: string;
   targetAudience: string;
   marketingGoals: string;
@@ -107,6 +108,7 @@ export default function GenerateContentPage() {
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
   const [briefData, setBriefData] = useState<BriefData>({
+    campaignName: "",
     businessContext: "",
     targetAudience: "",
     marketingGoals: "",
@@ -131,6 +133,11 @@ export default function GenerateContentPage() {
 
   // Add state for final results
   const [finalResults, setFinalResults] = useState<any>(null);
+
+  // Add state for save functionality
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Stepper collapse state with localStorage persistence
   const [isStepperCollapsed, setIsStepperCollapsed] = useState(() => {
@@ -296,6 +303,7 @@ export default function GenerateContentPage() {
       setCurrentStep(2);
     } else if (currentStep === 2) {
       if (
+        briefData.campaignName.trim() &&
         briefData.businessContext.trim() &&
         briefData.targetAudience.trim() &&
         briefData.marketingGoals.trim()
@@ -499,6 +507,57 @@ export default function GenerateContentPage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Save campaign function for Step 4
+  const saveCampaign = async () => {
+    if (!briefData.campaignName.trim()) {
+      setSaveError("Campaign name is required to save");
+      return;
+    }
+
+    if (!finalResults) {
+      setSaveError("No content to save");
+      return;
+    }
+
+    if (!selectedWhitepaper) {
+      setSaveError("No whitepaper selected");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveSuccess(false);
+
+      const saveData = {
+        campaignName: briefData.campaignName.trim(),
+        whitepaperTitle: selectedWhitepaper.title,
+        whitepaperFile: selectedWhitepaper.filename,
+        whitepaperId: selectedWhitepaper.id,
+        briefData,
+        selectedTheme,
+        finalResults,
+        createdAt: new Date().toISOString(),
+      };
+
+      // TODO: Replace with actual API call in Phase 3
+      console.log("🚀 Saving campaign:", saveData);
+
+      // Simulate API call for now
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000); // Reset success state after 3 seconds
+    } catch (error) {
+      console.error("❌ Save campaign error:", error);
+      setSaveError(
+        error instanceof Error ? error.message : "Failed to save campaign"
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1141,6 +1200,30 @@ export default function GenerateContentPage() {
                   {/* Step Content */}
                   <div className="p-4 sm:p-6 lg:p-8">
                     <div className="space-y-6">
+                      {/* Campaign Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
+                          Campaign Name *
+                          <HelpTooltip
+                            content="Give your content campaign a memorable name. This will help you identify and organize your generated content in the history."
+                            position="right"
+                          />
+                        </label>
+                        <input
+                          type="text"
+                          value={briefData.campaignName}
+                          onChange={(e) =>
+                            setBriefData({
+                              ...briefData,
+                              campaignName: e.target.value,
+                            })
+                          }
+                          placeholder={`${selectedWhitepaper?.title || "Content"} Campaign - ${new Date().toLocaleDateString()}`}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          required
+                        />
+                      </div>
+
                       {/* Business Context */}
                       <div>
                         <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
@@ -1729,6 +1812,46 @@ export default function GenerateContentPage() {
                     )}
 
                     <div className="text-center mt-8">
+                      {/* Save Campaign Button - Prominent Green */}
+                      <div className="mb-6">
+                        <ActionButton
+                          variant="primary"
+                          size="lg"
+                          onClick={saveCampaign}
+                          disabled={isSaving || !briefData.campaignName.trim()}
+                          className="bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white font-semibold px-8 py-3 shadow-lg"
+                          icon={
+                            isSaving ? (
+                              <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <CheckCircleIcon className="h-5 w-5" />
+                            )
+                          }
+                        >
+                          {isSaving
+                            ? "Saving Campaign..."
+                            : saveSuccess
+                              ? "Campaign Saved!"
+                              : "Save Campaign"}
+                        </ActionButton>
+                      </div>
+
+                      {/* Save Feedback Messages */}
+                      {saveError && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-sm text-red-700">{saveError}</p>
+                        </div>
+                      )}
+                      {saveSuccess && (
+                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                          <p className="text-sm text-green-700">
+                            ✅ Campaign saved successfully! You can find it in
+                            your History.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Secondary Actions */}
                       <div className="space-x-4">
                         <Link href="/dashboard">
                           <ActionButton variant="secondary" size="lg">
@@ -1742,6 +1865,7 @@ export default function GenerateContentPage() {
                             setCurrentStep(1);
                             setSelectedId(null); // Reset selectedId
                             setBriefData({
+                              campaignName: "",
                               businessContext: "",
                               targetAudience: "",
                               marketingGoals: "",
