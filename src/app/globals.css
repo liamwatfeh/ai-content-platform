@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2d3748;
+  --primary-navy: #1a365d;
+  --primary-blue: #3182ce;
+  --accent-green: #38a169;
+  --text-gray-900: #2d3748;
+  --text-gray-600: #4a5568;
+  --border-gray-200: #e2e8f0;
+  --bg-gray-50: #f7fafc;
+  --bg-gray-900: #1a202c;
+  --card-background: #ffffff;
+  --card-border: #e2e8f0;
+  --button-background: #f7fafc;
+  --button-hover: #edf2f7;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+html[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+html[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #2d3748;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  font-family:
+    var(--font-inter),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles for accessibility */
+.focus-visible:focus {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: 2px;
+}
+
+/* Apply transitions for smooth theme switching */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+/* Dark mode styles for common elements */
+.bg-white {
+  background-color: var(--card-background);
+}
+
+.border-gray-200 {
+  border-color: var(--card-border);
+}
+
+.text-gray-900 {
+  color: var(--text-gray-900);
+}
+
+.text-gray-600 {
+  color: var(--text-gray-600);
+}
