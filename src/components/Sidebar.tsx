@@ -14,8 +14,6 @@ import {
   SparklesIcon,
   CogIcon,
   UserCircleIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { useSidebar } from "@/contexts/SidebarContext";
 
@@ -41,56 +39,39 @@ export default function Sidebar() {
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="flex h-full flex-col bg-gradient-to-r from-[#e2fcff] to-white rounded-2xl shadow-lg shadow-blue-100/40 border border-blue-50 m-2 relative"
     >
-      {/* Collapse Toggle Button - repositioned to avoid overlap */}
+      {/* Hamburger Toggle Button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className={classNames(
-          "absolute bg-white rounded-full p-1.5 shadow-md border border-blue-100 hover:bg-blue-50 transition-all duration-200 z-10",
+          "absolute bg-white rounded-lg p-2 shadow-md border border-blue-100 hover:bg-blue-50 transition-all duration-200 z-10",
           isCollapsed
-            ? "-right-3 top-20" // Position below the logo when collapsed
-            : "-right-3 top-8" // Position at top when expanded
+            ? "left-1/2 transform -translate-x-1/2 top-4" // Centered at top when collapsed
+            : "right-4 top-4" // Top right when expanded
         )}
       >
-        {isCollapsed ? (
-          <ChevronRightIcon className="h-4 w-4 text-blue-600" />
-        ) : (
-          <ChevronLeftIcon className="h-4 w-4 text-blue-600" />
-        )}
+        <Bars3Icon className="h-5 w-5 text-blue-600" />
       </button>
 
-      {/* Logo Section */}
-      <div
-        className={classNames(
-          "flex flex-col items-center pt-8 pb-6",
-          isCollapsed ? "px-3" : "px-6"
-        )}
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className={classNames(
-            "bg-blue-50 rounded-full ring-1 ring-blue-100 shadow-sm mb-4",
-            isCollapsed ? "p-2" : "p-4"
-          )}
-        >
-          <div
-            className={classNames(
-              "relative",
-              isCollapsed ? "w-8 h-8" : "w-12 h-12"
-            )}
+      {/* Logo Section - Only show when expanded */}
+      {!isCollapsed && (
+        <div className="flex flex-col items-center pt-8 pb-6 px-6">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="bg-blue-50 rounded-full ring-1 ring-blue-100 shadow-sm mb-4 p-4"
           >
-            <Image
-              src="/content-brain-logo.svg"
-              alt="Content Brain"
-              width={isCollapsed ? 32 : 48}
-              height={isCollapsed ? 32 : 48}
-              className={isCollapsed ? "w-8 h-8" : "w-12 h-12"}
-            />
-          </div>
-        </motion.div>
+            <div className="relative w-12 h-12">
+              <Image
+                src="/content-brain-logo.svg"
+                alt="Content Brain"
+                width={48}
+                height={48}
+                className="w-12 h-12"
+              />
+            </div>
+          </motion.div>
 
-        {!isCollapsed && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -105,14 +86,14 @@ export default function Sidebar() {
               AI Content Platform
             </p>
           </motion.div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav
         className={classNames(
           "flex flex-1 flex-col space-y-1",
-          isCollapsed ? "px-2" : "px-4"
+          isCollapsed ? "px-2 pt-16" : "px-4" // Add top padding when collapsed to avoid hamburger overlap
         )}
       >
         {navigation.map((item) => {

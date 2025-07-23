@@ -10,14 +10,14 @@ import {
   DocumentTextIcon,
   CheckCircleIcon,
   XMarkIcon,
-  HomeIcon,
   SparklesIcon,
   ClockIcon,
-  CogIcon,
   Bars3Icon,
   ArrowPathIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { CheckIcon } from "@heroicons/react/24/solid";
 import PDFThumbnail from "@/components/PDFThumbnail";
@@ -86,53 +86,25 @@ export default function GenerateContentPage() {
   const { isCollapsed, sidebarOpen, setSidebarOpen } = useSidebar();
 
   const [currentStep, setCurrentStep] = useState(1);
-  // Whitepaper selection state - single source of truth
+
+  // PHASE 1: Simplified State Management - Single source of truth
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [whitepapers, setWhitepapers] = useState<Whitepaper[]>([]);
   const [loadingWhitepapers, setLoadingWhitepapers] = useState(true);
 
-  // Remove old selectedWhitepaper state and replace with computed value
-  const selectedWhitepaper =
-    whitepapers.find((wp) => wp.id === selectedId) || null;
-
-  // Simplified selection handler
-  const handleWhitepaperSelection = useCallback(
-    (whitepaper: Whitepaper) => {
-      console.log(
-        "Selecting whitepaper:",
-        whitepaper.title,
-        "ID:",
-        whitepaper.id
-      );
-      console.log("Current selection:", selectedWhitepaper?.id);
-
-      // Always update selection, even if same (to handle edge cases)
-      setSelectedId(whitepaper.id); // Use setSelectedId
-    },
-    [] // Remove dependency to prevent unnecessary re-renders
+  // Computed value from single source of truth
+  const selectedWhitepaper = useMemo(
+    () => whitepapers.find((wp) => wp.id === selectedId) || null,
+    [whitepapers, selectedId]
   );
 
-  // Add a reset selection function for debugging
-  const resetSelection = useCallback(() => {
-    console.log("Resetting selection");
-    setSelectedId(null);
+  // PHASE 1: Atomic and predictable selection handler
+  const handleWhitepaperSelection = useCallback((whitepaper: Whitepaper) => {
+    setSelectedId(whitepaper.id);
   }, []);
-
-  // Add to window for debugging (remove in production)
-  useEffect(() => {
-    (window as any).resetWhitepaperSelection = resetSelection;
-    (window as any).currentSelection = selectedWhitepaper;
-  }, [resetSelection, selectedWhitepaper]);
 
   // Keyboard navigation state
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      // No selectionTimeout to clear
-    };
-  }, []);
 
   const [briefData, setBriefData] = useState<BriefData>({
     businessContext: "",
@@ -160,6 +132,15 @@ export default function GenerateContentPage() {
   // Add state for final results
   const [finalResults, setFinalResults] = useState<any>(null);
 
+  // Stepper collapse state with localStorage persistence
+  const [isStepperCollapsed, setIsStepperCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("stepperCollapsed");
+      return saved ? JSON.parse(saved) : false; // Default to expanded
+    }
+    return false;
+  });
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBucketId, setSelectedBucketId] = useState<string>("");
@@ -167,32 +148,31 @@ export default function GenerateContentPage() {
     []
   );
 
-  // Filter whitepapers (simplified - no memoization for now)
-  const filteredWhitepapers = whitepapers.filter((whitepaper) => {
-    const matchesSearch =
-      searchTerm === "" ||
-      whitepaper.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      whitepaper.filename.toLowerCase().includes(searchTerm.toLowerCase());
+  // PHASE 1: Simplified filtered whitepapers
+  const filteredWhitepapers = useMemo(() => {
+    return whitepapers.filter((whitepaper) => {
+      const matchesSearch =
+        !searchTerm ||
+        whitepaper.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        whitepaper.filename.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesBucket =
-      selectedBucketId === "" ||
-      whitepaper.reference_bucket_id === selectedBucketId;
+      const matchesBucket =
+        !selectedBucketId ||
+        whitepaper.reference_bucket_id === selectedBucketId;
 
-    return matchesSearch && matchesBucket;
-  });
+      return matchesSearch && matchesBucket;
+    });
+  }, [whitepapers, searchTerm, selectedBucketId]);
 
   // Reset selection if selected whitepaper disappears from filtered list
   useEffect(() => {
     if (selectedId && !filteredWhitepapers.find((wp) => wp.id === selectedId)) {
-      console.log(
-        "Selected whitepaper not in filtered list, resetting selection"
-      );
       setSelectedId(null);
       setFocusedIndex(0);
     }
   }, [selectedId, filteredWhitepapers]);
 
-  // Keyboard navigation handler
+  // PHASE 4: Enhanced keyboard navigation handler
   const handleKeyboardNavigation = useCallback(
     (e: KeyboardEvent) => {
       if (!filteredWhitepapers.length) return;
@@ -209,6 +189,7 @@ export default function GenerateContentPage() {
           setFocusedIndex((prev) => Math.max(prev - 1, 0));
           break;
         case "Enter":
+        case " ":
           e.preventDefault();
           if (filteredWhitepapers[focusedIndex]) {
             handleWhitepaperSelection(filteredWhitepapers[focusedIndex]);
@@ -217,6 +198,7 @@ export default function GenerateContentPage() {
         case "Escape":
           e.preventDefault();
           setSelectedId(null);
+          setFocusedIndex(0);
           break;
       }
     },
@@ -242,13 +224,11 @@ export default function GenerateContentPage() {
     loadReferenceBuckets();
   }, []);
 
-  // Debug effect to track selection changes
+  // Track selection changes for debugging (only in development)
   useEffect(() => {
-    console.log(
-      "Selected whitepaper changed:",
-      selectedWhitepaper?.id,
-      selectedWhitepaper?.title
-    );
+    if (process.env.NODE_ENV === "development" && selectedWhitepaper) {
+      console.log("Selected whitepaper:", selectedWhitepaper.title);
+    }
   }, [selectedWhitepaper]);
 
   const loadWhitepapers = async () => {
@@ -301,6 +281,15 @@ export default function GenerateContentPage() {
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(1)} MB`;
   };
+
+  // Toggle stepper collapse with localStorage persistence
+  const toggleStepperCollapse = useCallback(() => {
+    const newCollapsed = !isStepperCollapsed;
+    setIsStepperCollapsed(newCollapsed);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("stepperCollapsed", JSON.stringify(newCollapsed));
+    }
+  }, [isStepperCollapsed]);
 
   const handleNext = () => {
     if (currentStep === 1 && selectedWhitepaper) {
@@ -536,169 +525,306 @@ export default function GenerateContentPage() {
             </button>
           </div>
 
-          {/* Enhanced Interactive Step Indicator */}
-          <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 border-b border-blue-100 shadow-sm sticky top-0 z-10">
-            <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-              {/* Enhanced Stepper */}
+          {/* Collapsible Interactive Step Indicator */}
+          <motion.div
+            className="bg-gradient-to-r from-blue-50 via-white to-blue-50 border-b border-blue-100 shadow-sm sticky top-0 z-10"
+            animate={{ height: isStepperCollapsed ? "auto" : "auto" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8">
               <nav aria-label="Progress">
-                {/* Desktop stepper */}
-                <div className="hidden sm:block">
-                  <div className="relative max-w-4xl mx-auto">
-                    {/* Connecting track with gradient */}
-                    <div className="absolute top-6 left-0 w-full h-1 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-full">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 rounded-full shadow-sm"
-                        initial={{ width: "0%" }}
-                        animate={{
-                          width: `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
-                        }}
-                        transition={{ duration: 0.8, ease: "easeInOut" }}
-                      />
-                    </div>
+                {/* Collapsed State - Thin Progress Bar */}
+                {isStepperCollapsed ? (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="py-3"
+                  >
+                    <div className="max-w-4xl mx-auto flex items-center gap-4">
+                      {/* Thin Progress Line with Mini Steps */}
+                      <div className="flex-1 flex items-center gap-3">
+                        {steps.map((step, index) => {
+                          const isCompleted = step.completed;
+                          const isCurrent = currentStep === step.number;
+                          const isClickable = isCompleted;
 
-                    {/* Steps */}
-                    <ol className="flex items-center justify-between relative z-10">
-                      {steps.map((step) => {
-                        const isCompleted = step.completed;
-                        const isCurrent = currentStep === step.number;
-                        const isClickable = isCompleted;
-
-                        return (
-                          <li
-                            key={step.number}
-                            className="flex flex-col items-center group"
-                          >
-                            <motion.button
-                              onClick={() =>
-                                isClickable && setCurrentStep(step.number)
-                              }
-                              disabled={!isClickable}
-                              className={`relative w-10 sm:w-12 h-10 sm:h-12 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 shadow-lg ${
-                                isCompleted
-                                  ? "bg-blue-600 text-white shadow-blue-200 cursor-pointer hover:bg-blue-700 hover:shadow-blue-300"
-                                  : isCurrent
-                                    ? "bg-white text-blue-600 border-2 sm:border-3 border-blue-600 shadow-blue-100"
-                                    : "bg-white text-gray-400 border-2 border-gray-200 shadow-gray-100"
-                              }`}
-                              whileHover={
-                                isClickable
-                                  ? { scale: 1.1, y: -2 }
-                                  : isCurrent
-                                    ? { scale: 1.05 }
-                                    : {}
-                              }
-                              whileTap={isClickable ? { scale: 0.95 } : {}}
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{
-                                delay: step.number * 0.1,
-                                type: "spring",
-                              }}
+                          return (
+                            <div
+                              key={step.number}
+                              className="flex items-center"
                             >
-                              {isCompleted ? (
-                                <CheckIcon className="w-4 sm:w-6 h-4 sm:h-6" />
-                              ) : (
-                                <span className="font-unbounded">
-                                  {step.number}
-                                </span>
-                              )}
-
-                              {/* Active step glow effect */}
-                              {isCurrent && (
-                                <motion.div
-                                  className="absolute inset-0 rounded-full border-2 border-blue-400 opacity-60"
-                                  animate={{
-                                    scale: [1, 1.3, 1],
-                                    opacity: [0.6, 0, 0.6],
-                                  }}
-                                  transition={{
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    ease: "easeInOut",
-                                  }}
-                                />
-                              )}
-                            </motion.button>
-
-                            {/* Step label with enhanced typography */}
-                            <motion.div
-                              className="mt-2 sm:mt-4 text-center"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: step.number * 0.1 + 0.2 }}
-                            >
-                              <span
-                                className={`block text-xs sm:text-sm font-semibold font-archivo leading-tight ${
-                                  isCompleted || isCurrent
-                                    ? "text-gray-900"
-                                    : "text-gray-400"
+                              {/* Mini Step Circle */}
+                              <motion.button
+                                onClick={() =>
+                                  isClickable && setCurrentStep(step.number)
+                                }
+                                disabled={!isClickable}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
+                                  isCompleted
+                                    ? "bg-blue-600 text-white cursor-pointer hover:bg-blue-700"
+                                    : isCurrent
+                                      ? "bg-white text-blue-600 border-2 border-blue-600"
+                                      : "bg-gray-200 text-gray-400"
                                 }`}
+                                whileHover={isClickable ? { scale: 1.1 } : {}}
+                                whileTap={isClickable ? { scale: 0.9 } : {}}
                               >
-                                {step.name}
-                              </span>
+                                {isCompleted ? (
+                                  <CheckIcon className="w-3 h-3" />
+                                ) : (
+                                  <span className="font-unbounded text-xs">
+                                    {step.number}
+                                  </span>
+                                )}
+                              </motion.button>
 
-                              {/* Active step accent bar */}
-                              {isCurrent && (
-                                <motion.div
-                                  className="mt-1 sm:mt-2 h-0.5 sm:h-1 w-8 sm:w-12 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full mx-auto"
-                                  initial={{ width: 0 }}
-                                  animate={{ width: "100%" }}
-                                  transition={{ duration: 0.5, delay: 0.3 }}
-                                />
+                              {/* Connecting Line */}
+                              {index < steps.length - 1 && (
+                                <div className="w-12 sm:w-16 h-0.5 mx-2 bg-gray-200 relative">
+                                  <motion.div
+                                    className="h-full bg-gradient-to-r from-blue-600 to-blue-400"
+                                    initial={{ width: "0%" }}
+                                    animate={{
+                                      width: step.completed ? "100%" : "0%",
+                                    }}
+                                    transition={{ duration: 0.5 }}
+                                  />
+                                </div>
                               )}
-                            </motion.div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </div>
-                </div>
+                            </div>
+                          );
+                        })}
+                      </div>
 
-                {/* Enhanced Mobile stepper */}
-                <div className="sm:hidden">
-                  <div className="flex items-center space-x-3 bg-white rounded-xl p-3 shadow-md border border-blue-100 max-w-sm mx-auto">
-                    {/* Current step circle */}
-                    <motion.div
-                      className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
-                        steps[currentStep - 1]?.completed
-                          ? "bg-blue-600 text-white shadow-blue-200"
-                          : "bg-white text-blue-600 border-2 border-blue-600 shadow-blue-100"
-                      }`}
-                      whileHover={{ scale: 1.05 }}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring" }}
-                    >
-                      {steps[currentStep - 1]?.completed ? (
-                        <CheckIcon className="w-5 h-5" />
-                      ) : (
-                        <span className="font-unbounded">{currentStep}</span>
-                      )}
-                    </motion.div>
+                      {/* Current Step Name */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-gray-900 font-archivo">
+                          Step {currentStep}: {steps[currentStep - 1]?.name}
+                        </span>
 
-                    {/* Current step info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-lg font-bold font-unbounded text-gray-900 mb-1 truncate">
-                        {steps[currentStep - 1]?.name}
-                      </p>
-                      <div className="relative">
-                        <div className="bg-gray-200 rounded-full h-1.5">
+                        {/* Expand Button */}
+                        <motion.button
+                          onClick={toggleStepperCollapse}
+                          className="group bg-white border-2 border-blue-100 hover:border-blue-200 rounded-2xl px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                          whileHover={{ scale: 1.02, y: -1 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <span className="text-sm font-medium text-gray-600 group-hover:text-gray-800">
+                            Expand
+                          </span>
+                          <ChevronDownIcon className="w-4 h-4 text-gray-500 group-hover:text-gray-700" />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  /* Expanded State - Full Stepper */
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="py-4 sm:py-6 lg:py-8"
+                  >
+                    {/* Desktop stepper */}
+                    <div className="hidden sm:block">
+                      <div className="relative max-w-4xl mx-auto">
+                        {/* Connecting track with gradient */}
+                        <div className="absolute top-6 left-0 w-full h-1 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-full">
                           <motion.div
-                            className="bg-gradient-to-r from-blue-600 to-blue-400 h-1.5 rounded-full"
+                            className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 rounded-full shadow-sm"
                             initial={{ width: "0%" }}
                             animate={{
-                              width: `${(currentStep / steps.length) * 100}%`,
+                              width: `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
                             }}
                             transition={{ duration: 0.8, ease: "easeInOut" }}
                           />
                         </div>
+
+                        {/* Steps */}
+                        <ol className="flex items-center justify-between relative z-10">
+                          {steps.map((step) => {
+                            const isCompleted = step.completed;
+                            const isCurrent = currentStep === step.number;
+                            const isClickable = isCompleted;
+
+                            return (
+                              <li
+                                key={step.number}
+                                className="flex flex-col items-center group"
+                              >
+                                <motion.button
+                                  onClick={() =>
+                                    isClickable && setCurrentStep(step.number)
+                                  }
+                                  disabled={!isClickable}
+                                  className={`relative w-10 sm:w-12 h-10 sm:h-12 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 shadow-lg ${
+                                    isCompleted
+                                      ? "bg-blue-600 text-white shadow-blue-200 cursor-pointer hover:bg-blue-700 hover:shadow-blue-300"
+                                      : isCurrent
+                                        ? "bg-white text-blue-600 border-2 sm:border-3 border-blue-600 shadow-blue-100"
+                                        : "bg-white text-gray-400 border-2 border-gray-200 shadow-gray-100"
+                                  }`}
+                                  whileHover={
+                                    isClickable
+                                      ? { scale: 1.1, y: -2 }
+                                      : isCurrent
+                                        ? { scale: 1.05 }
+                                        : {}
+                                  }
+                                  whileTap={isClickable ? { scale: 0.95 } : {}}
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{
+                                    delay: step.number * 0.1,
+                                    type: "spring",
+                                  }}
+                                >
+                                  {isCompleted ? (
+                                    <CheckIcon className="w-4 sm:w-6 h-4 sm:h-6" />
+                                  ) : (
+                                    <span className="font-unbounded">
+                                      {step.number}
+                                    </span>
+                                  )}
+
+                                  {/* Active step glow effect */}
+                                  {isCurrent && (
+                                    <motion.div
+                                      className="absolute inset-0 rounded-full border-2 border-blue-400 opacity-60"
+                                      animate={{
+                                        scale: [1, 1.3, 1],
+                                        opacity: [0.6, 0, 0.6],
+                                      }}
+                                      transition={{
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                      }}
+                                    />
+                                  )}
+                                </motion.button>
+
+                                {/* Step label with enhanced typography */}
+                                <motion.div
+                                  className="mt-2 sm:mt-4 text-center"
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{
+                                    delay: step.number * 0.1 + 0.2,
+                                  }}
+                                >
+                                  <span
+                                    className={`block text-xs sm:text-sm font-semibold font-archivo leading-tight ${
+                                      isCompleted || isCurrent
+                                        ? "text-gray-900"
+                                        : "text-gray-400"
+                                    }`}
+                                  >
+                                    {step.name}
+                                  </span>
+
+                                  {/* Active step accent bar */}
+                                  {isCurrent && (
+                                    <motion.div
+                                      className="mt-1 sm:mt-2 h-0.5 sm:h-1 w-8 sm:w-12 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full mx-auto"
+                                      initial={{ width: 0 }}
+                                      animate={{ width: "100%" }}
+                                      transition={{ duration: 0.5, delay: 0.3 }}
+                                    />
+                                  )}
+                                </motion.div>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
+
+                      {/* Prominent Collapse Button at Bottom */}
+                      <div className="flex justify-center mt-6">
+                        <motion.button
+                          onClick={toggleStepperCollapse}
+                          className="group bg-white border-2 border-blue-100 hover:border-blue-200 rounded-2xl px-4 py-2.5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                          whileHover={{ scale: 1.02, y: -1 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <span className="text-sm font-medium text-gray-600 group-hover:text-gray-800">
+                            Collapse
+                          </span>
+                          <ChevronUpIcon className="w-4 h-4 text-gray-500 group-hover:text-gray-700" />
+                        </motion.button>
                       </div>
                     </div>
-                  </div>
-                </div>
+
+                    {/* Enhanced Mobile stepper with collapse button */}
+                    <div className="sm:hidden">
+                      <div className="flex items-center space-x-3 bg-white rounded-xl p-3 shadow-md border border-blue-100 max-w-sm mx-auto">
+                        {/* Current step circle */}
+                        <motion.div
+                          className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
+                            steps[currentStep - 1]?.completed
+                              ? "bg-blue-600 text-white shadow-blue-200"
+                              : "bg-white text-blue-600 border-2 border-blue-600 shadow-blue-100"
+                          }`}
+                          whileHover={{ scale: 1.05 }}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring" }}
+                        >
+                          {steps[currentStep - 1]?.completed ? (
+                            <CheckIcon className="w-5 h-5" />
+                          ) : (
+                            <span className="font-unbounded">
+                              {currentStep}
+                            </span>
+                          )}
+                        </motion.div>
+
+                        {/* Current step info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm sm:text-lg font-bold font-unbounded text-gray-900 mb-1 truncate">
+                            {steps[currentStep - 1]?.name}
+                          </p>
+                          <div className="relative">
+                            <div className="bg-gray-200 rounded-full h-1.5">
+                              <motion.div
+                                className="bg-gradient-to-r from-blue-600 to-blue-400 h-1.5 rounded-full"
+                                initial={{ width: "0%" }}
+                                animate={{
+                                  width: `${(currentStep / steps.length) * 100}%`,
+                                }}
+                                transition={{
+                                  duration: 0.8,
+                                  ease: "easeInOut",
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Prominent Collapse Button at Bottom - Mobile */}
+                      <div className="flex justify-center mt-4">
+                        <motion.button
+                          onClick={toggleStepperCollapse}
+                          className="group bg-white border-2 border-blue-100 hover:border-blue-200 rounded-2xl px-4 py-2.5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                          whileHover={{ scale: 1.02, y: -1 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <span className="text-sm font-medium text-gray-600 group-hover:text-gray-800">
+                            Collapse
+                          </span>
+                          <ChevronUpIcon className="w-4 h-4 text-gray-500 group-hover:text-gray-700" />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </nav>
             </div>
-          </div>
+          </motion.div>
 
           {/* Error Display */}
           {error && (
@@ -886,38 +1012,38 @@ export default function GenerateContentPage() {
                                 aria-label={`Select whitepaper: ${whitepaper.title}`}
                                 aria-pressed={isSelected}
                                 className={`
-                                  group relative cursor-pointer transition-all duration-150 ease-in-out
-                                  bg-white rounded-lg shadow-sm border-2 p-4 flex items-center
+                                  group relative cursor-pointer transition-all duration-200 ease-out
+                                  bg-white rounded-xl shadow-sm border-2 p-5 flex items-center
                                   hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                                   ${
                                     isSelected
-                                      ? "border-blue-600 bg-blue-50 shadow-lg transform scale-[1.01]"
-                                      : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                                      ? "border-blue-500 bg-blue-50/50 shadow-lg shadow-blue-100/50"
+                                      : "border-gray-200 hover:border-blue-300 hover:bg-gray-50/50"
                                   }
                                   ${isFocused && !isSelected ? "ring-2 ring-gray-300" : ""}
                                 `}
                               >
-                                {/* Vertical Accent Bar */}
+                                {/* PHASE 2: Single Accent Bar Selection Indicator */}
                                 <div
                                   className={`
-                                  relative w-2 h-20 rounded-l-lg mr-4 flex items-center justify-center
-                                  transition-all duration-150
+                                  relative w-1.5 h-20 rounded-full mr-5 flex items-center justify-center
+                                  transition-all duration-200 ease-out
                                   ${
                                     isSelected
-                                      ? "bg-gradient-to-b from-blue-500 to-blue-700 shadow-md shadow-blue-300"
-                                      : "bg-gradient-to-b from-blue-400 to-blue-600 group-hover:from-blue-500 group-hover:to-blue-700"
+                                      ? "bg-gradient-to-b from-blue-500 to-blue-600 shadow-md shadow-blue-200"
+                                      : "bg-gradient-to-b from-gray-300 to-gray-400 group-hover:from-blue-400 group-hover:to-blue-500"
                                   }
                                 `}
                                 >
-                                  {/* Checkmark in Accent Bar */}
+                                  {/* PHASE 2: Clean checkmark indicator */}
                                   <div
                                     className={`
                                     absolute inset-0 flex items-center justify-center
-                                    transition-all duration-150
-                                    ${isSelected ? "opacity-100 scale-100" : "opacity-0 scale-50"}
+                                    transition-all duration-200 ease-out
+                                    ${isSelected ? "opacity-100 scale-100" : "opacity-0 scale-75"}
                                   `}
                                   >
-                                    <CheckIcon className="w-4 h-4 text-white" />
+                                    <CheckIcon className="w-3 h-3 text-white drop-shadow-sm" />
                                   </div>
                                 </div>
 
@@ -926,8 +1052,8 @@ export default function GenerateContentPage() {
                                   <div
                                     className={`
                                     w-16 h-20 bg-gray-100 rounded-lg overflow-hidden shadow-sm
-                                    transition-transform duration-150
-                                    ${isSelected ? "scale-105" : "scale-100"}
+                                    transition-all duration-200 ease-out
+                                    ${isSelected ? "shadow-md" : ""}
                                   `}
                                   >
                                     <PDFThumbnail
@@ -939,17 +1065,17 @@ export default function GenerateContentPage() {
                                   </div>
                                 </div>
 
-                                {/* Card Content */}
+                                {/* PHASE 3: Simplified Card Content */}
                                 <div className="flex-1 min-w-0">
                                   {/* Title */}
                                   <h3
                                     className={`
                                     text-lg font-bold font-unbounded mb-2 truncate
-                                    transition-colors duration-150
+                                    transition-colors duration-200 ease-out
                                     ${
                                       isSelected
                                         ? "text-blue-900"
-                                        : "text-gray-900 group-hover:text-blue-700"
+                                        : "text-gray-900 group-hover:text-blue-800"
                                     }
                                   `}
                                   >
@@ -957,7 +1083,7 @@ export default function GenerateContentPage() {
                                   </h3>
 
                                   {/* Metadata */}
-                                  <div className="space-y-1">
+                                  <div className="space-y-1.5">
                                     <p className="text-sm text-gray-600 font-archivo truncate">
                                       📄 {whitepaper.filename}
                                     </p>
@@ -972,27 +1098,16 @@ export default function GenerateContentPage() {
                                           whitepaper.file_size_bytes
                                         )}
                                       </span>
-                                      <span className="bg-gray-100 px-2 py-1 rounded-full">
+                                      <span
+                                        className={`px-2 py-1 rounded-full text-xs font-medium ${isSelected ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                                      >
                                         {whitepaper.chunk_count} chunks
                                       </span>
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* Selection Status Indicator */}
-                                <div
-                                  className={`
-                                  flex-shrink-0 ml-4 transition-all duration-150
-                                  ${isSelected ? "opacity-100 scale-100" : "opacity-0 scale-50"}
-                                `}
-                                >
-                                  <div className="flex items-center gap-2 text-blue-700 font-semibold font-archivo">
-                                    <CheckCircleIcon className="w-5 h-5" />
-                                    <span className="text-sm hidden md:inline">
-                                      Selected
-                                    </span>
-                                  </div>
-                                </div>
+                                {/* PHASE 2: Removed duplicate selection indicator for cleaner design */}
                               </div>
                             );
                           }
@@ -1260,12 +1375,6 @@ export default function GenerateContentPage() {
                         Select the theme that best aligns with your marketing
                         goals
                       </p>
-                      {workflowState && (
-                        <p className="text-sm text-gray-500 mt-2 font-archivo">
-                          Generated from whitepaper analysis • Step:{" "}
-                          {workflowState.currentStep}
-                        </p>
-                      )}
                     </div>
                   </div>
 

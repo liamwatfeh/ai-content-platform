@@ -24,8 +24,7 @@ import {
   DocumentIcon,
   CogIcon,
   UserCircleIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 import { useSidebar } from "@/contexts/SidebarContext";
 import PDFThumbnail from "@/components/PDFThumbnail";
@@ -223,12 +222,22 @@ export default function WhitepapersPage() {
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
 
+    // Auto-generate Pinecone index name from bucket name
+    // Format: contentflow-timestamp-sanitized-name
+    // Pinecone requirements: lowercase, alphanumeric + hyphens, max 45 chars
+    const pinecone_index_name = `contentbrain-${Date.now()}-${name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-") // Replace non-alphanumeric with hyphens
+      .replace(/-+/g, "-") // Replace multiple hyphens with single
+      .replace(/^-|-$/g, "") // Remove leading/trailing hyphens
+      .substring(0, 30)}`;
+
     try {
       setCreateLoading(true);
       const response = await fetch("/api/reference-buckets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, pinecone_index_name }),
       });
 
       const data = await response.json();
@@ -546,35 +555,33 @@ export default function WhitepapersPage() {
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="flex h-full flex-col bg-gradient-to-r from-[#e2fcff] to-white rounded-2xl shadow-lg shadow-blue-100/40 border border-blue-50 m-2 relative"
     >
-      {/* Collapse Toggle */}
+      {/* Hamburger Toggle */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-8 bg-white rounded-full p-1.5 shadow-md border border-blue-100 hover:bg-blue-50 transition-all duration-200 z-10"
+        className={`absolute bg-white rounded-lg p-2 shadow-md border border-blue-100 hover:bg-blue-50 transition-all duration-200 z-10 ${
+          isCollapsed
+            ? "left-1/2 transform -translate-x-1/2 top-4" // Centered at top when collapsed
+            : "right-4 top-4" // Top right when expanded
+        }`}
       >
-        {isCollapsed ? (
-          <ChevronRightIcon className="h-4 w-4 text-blue-600" />
-        ) : (
-          <ChevronLeftIcon className="h-4 w-4 text-blue-600" />
-        )}
+        <Bars3Icon className="h-5 w-5 text-blue-600" />
       </button>
 
-      {/* Logo Section */}
-      <div
-        className={`flex flex-col items-center pt-8 pb-6 ${isCollapsed ? "px-3" : "px-6"}`}
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className={`bg-blue-50 rounded-full ring-1 ring-blue-100 shadow-sm mb-4 ${isCollapsed ? "p-2" : "p-4"}`}
-        >
-          <Image
-            src="/content-brain-logo.svg"
-            alt="Content Brain"
-            width={isCollapsed ? 32 : 48}
-            height={isCollapsed ? 32 : 48}
-          />
-        </motion.div>
-        {!isCollapsed && (
+      {/* Logo Section - Only show when expanded */}
+      {!isCollapsed && (
+        <div className="flex flex-col items-center pt-8 pb-6 px-6">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-blue-50 rounded-full ring-1 ring-blue-100 shadow-sm mb-4 p-4"
+          >
+            <Image
+              src="/content-brain-logo.svg"
+              alt="Content Brain"
+              width={48}
+              height={48}
+            />
+          </motion.div>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -587,11 +594,13 @@ export default function WhitepapersPage() {
               AI Content Platform
             </p>
           </motion.div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Main Navigation */}
-      <nav className={`space-y-1 ${isCollapsed ? "px-2" : "px-4"}`}>
+      <nav className={`space-y-1 ${isCollapsed ? "px-2 pt-16" : "px-4"}`}>
+        {" "}
+        {/* Add top padding when collapsed */}
         {navigation.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -1027,7 +1036,7 @@ export default function WhitepapersPage() {
                     }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowUploadZone(true)}
-                    className="group px-6 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-2 transition-all duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg"
+                    className="group px-6 py-3 bg-blue-600 text-white rounded-xl font-bold inline-flex items-center gap-2 transition-all duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg"
                   >
                     <CloudArrowUpIcon className="h-5 w-5 transition-transform group-hover:scale-110" />
                     Upload Whitepaper
@@ -1040,7 +1049,7 @@ export default function WhitepapersPage() {
                   transition={{ delay: 0.2 }}
                   className={
                     viewMode === "grid"
-                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8"
                       : "space-y-4"
                   }
                 >
