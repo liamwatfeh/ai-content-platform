@@ -591,7 +591,7 @@ export default function WhitepapersPage() {
               Content Brain
             </h1>
             <p className="text-xs text-gray-500 font-archivo mt-1">
-              AI Content Platform
+              ©{new Date().getFullYear()} Brilliant Noise - All rights reserved
             </p>
           </motion.div>
         </div>
@@ -750,7 +750,7 @@ export default function WhitepapersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center">
+      <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center py-20">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -83,7 +83,7 @@ export default function Sidebar() {
               Content Brain
             </h1>
             <p className="text-xs text-gray-500 font-archivo mt-1 tracking-wide">
-              AI Content Platform
+              ©{new Date().getFullYear()} Brilliant Noise - All rights reserved
             </p>
           </motion.div>
         </div>
